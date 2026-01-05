@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+.venv/
+
+# IDE / Editor
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Database
+*.db
+
+# pytest cache
+.pytest_cache/
+
+# Uvicorn / log files
+*.log
