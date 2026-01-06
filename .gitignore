@@ -13,6 +13,9 @@ venv/
 *.sublime-project
 *.sublime-workspace
 
+# OS
+.DS_Store
+
 # Database
 *.db
 
