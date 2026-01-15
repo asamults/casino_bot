@@ -1,16 +1,18 @@
+# src/casino_bot/db/engine.py
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.engine import Engine
 import os
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql+psycopg://casino:secret@postgres:5432/casino_db",
+    "postgresql+psycopg://casino:secret@localhost:5432/casino_db",
 )
 
-engine = create_engine(
+engine: Engine = create_engine(
     DATABASE_URL,
-    echo=True,
-    future=True,
+    echo=False,
     pool_pre_ping=True,
 )
 
@@ -19,5 +21,3 @@ SessionLocal = sessionmaker(
     autoflush=False,
     autocommit=False,
 )
-
-Base = declarative_base()

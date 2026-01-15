@@ -1,0 +1,40 @@
+
+services:
+  postgres:
+    image: postgres:16.11
+    container_name: casino_bot-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: casino
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: casino_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U casino -d casino_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    container_name: casino_bot-api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "
+      alembic upgrade head &&
+      uvicorn src.casino_bot.main:app --host 0.0.0.0 --port 8000
+      "
+
+volumes:
+  pgdata:

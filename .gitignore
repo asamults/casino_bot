@@ -4,7 +4,12 @@ __pycache__/
 *.pyo
 *.pyd
 
+
+.pgdata/
+.idea/
+
 # Virtual environment
+.env
 .venv/
 venv/
 

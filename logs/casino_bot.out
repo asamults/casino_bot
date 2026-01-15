@@ -1,0 +1,2 @@
+INFO:     127.0.0.1:58478 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+0.0.1:46688 - "GET /openapi.json HTTP/1.1" 200 OK
