@@ -1,83 +1,94 @@
-# Casino Bot Project
+# Casino Bot
 
-## Описание
-**Casino Bot** — программное обеспечение на Python для управления игровой платформой с административными и аналитическими функциями. Проект использует современный стек: FastAPI для API, PostgreSQL для хранения данных и Alembic для управления миграциями базы данных.  
+## Purpose
+Casino Bot is a Python-based application designed to automate casino-related operations, including betting management, user interactions, and administrative tasks. The bot is intended for educational and development purposes, demonstrating backend development with Python, FastAPI, database integration, and REST API endpoints.
 
-Цель проекта — обеспечить безопасное и масштабируемое управление игровыми сессиями, пользователями и аналитикой.
+## Features
+- User management and authentication via FastAPI endpoints
+- Betting and game logic automation
+- Admin panel for monitoring and controlling bot operations
+- Database interaction using PostgreSQL or SQLite with SQLAlchemy
+- Migration and rollback support with Alembic
+- Logging and monitoring of critical events
+- Docker support for easy deployment
 
----
+## Technologies
+- Python 3.11+
+- FastAPI for API endpoints
+- SQLAlchemy ORM for database operations
+- Alembic for database migrations
+- PostgreSQL or SQLite as database backend
+- Docker and Docker Compose for containerization
+- Uvicorn as ASGI server
 
-## Структура проекта
+## Repository Structure
 
 casino_bot/
-├── app/
-│ ├── api/ # REST API endpoints
-│ ├── core/ # Основная логика приложения
-│ ├── db/ # Модели, схемы, миграции
-│ ├── services/ # Сервисы бизнес-логики
-│ └── main.py # Точка входа приложения
-├── alembic/ # Миграции базы данных
-├── tests/ # Юнит-тесты
-├── .venv/ # Виртуальное окружение
-├── Dockerfile
-├── docker-compose.yml
-├── requirements.txt
-└── README.md
+├── alembic/ # Database migrations
+├── app/ # Application source code
+│ ├── api/ # API endpoints
+│ ├── core/ # Core business logic
+│ ├── models/ # Database models
+│ ├── services/ # Services and utilities
+│ └── main.py # Entry point for FastAPI server
+├── tests/ # Unit and integration tests
+├── Dockerfile # Docker configuration
+├── docker-compose.yml # Docker Compose for dev/testing
+├── requirements.txt # Python dependencies
+└── README.md # Project documentation
 
 
-## Установка
-
-### Локальная установка
-1. Клонировать репозиторий:
+## Installation and Setup
+1. Clone the repository:
 ```bash
 git clone https://github.com/asamults/casino_bot.git
 cd casino_bot
 
-    Создать виртуальное окружение и активировать:
+    Create and activate a virtual environment:
 
 python3 -m venv .venv
 source .venv/bin/activate
 
-    Установить зависимости:
+    Install dependencies:
 
 pip install -r requirements.txt
 
-    Настроить переменные окружения:
+    Configure environment variables (database URL, secret keys, etc.) as required.
 
-export DATABASE_URL=postgresql://user:password@localhost:5432/casino
-export SECRET_KEY='your-secret-key'
+    Apply database migrations:
 
-Миграции базы данных
-
-Используется Alembic:
-
-# Инициализация миграций (один раз)
-alembic init alembic
-
-# Создание новой миграции
-alembic revision --autogenerate -m "Описание изменений"
-
-# Применение миграций
 alembic upgrade head
 
-# Откат миграций (rollback)
-alembic downgrade -1
+    Run the server:
 
-Запуск проекта
-Локальный запуск
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload
 
+    Access admin endpoints via /admin routes or other defined API endpoints.
 
-Доступ к административным эндпоинтам:
+Testing
 
-http://127.0.0.1:8000/admin
+    Unit and integration tests are located in the tests/ directory.
 
-Docker
+    Run tests using:
+
+pytest
+
+Deployment
+
+    The project supports Docker deployment:
+
 docker-compose up --build
 
-Тестирование
-pytest tests/ --cov=app
+    Make sure environment variables are configured inside .env for production or development.
 
-Лицензия
+Contributing
 
-MIT License. Все компоненты проекта могут использоваться и модифицироваться в соответствии с условиями лицензии.
+    Fork the repository and create a new branch for features or bug fixes.
+
+    Ensure all code follows PEP8 style and passes tests.
+
+    Submit pull requests with descriptive commit messages.
+
+License
+
+This project is for educational and development purposes. Usage in production or real gambling applications is not recommended and should comply with all applicable legal regulations.
