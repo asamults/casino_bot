@@ -45,7 +45,7 @@ jobs:
           echo "SECRET_KEY=prod_secret_key_minimum_length_32__" >> $GITHUB_ENV
           echo "JWT_SIGNING_KEY=prod_jwt_signing_key_minimum_len_32" >> $GITHUB_ENV
           echo "REFRESH_TOKEN_PEPPER=prod_refresh_pepper_minimum_len_32" >> $GITHUB_ENV
-          echo '["CORS_ALLOW_ORIGINS=https://admin.example.com"]' >> $GITHUB_ENV
+          echo 'CORS_ALLOW_ORIGINS=["https://admin.example.com"]' >> $GITHUB_ENV
           echo "ALLOWED_HOSTS=api.example.com,localhost" >> $GITHUB_ENV
 
       - name: Migration check
