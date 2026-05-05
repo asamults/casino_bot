@@ -47,13 +47,13 @@ jobs:
             -e DATABASE_URL=postgresql+psycopg://casino:secret@postgres:5432/casino_db \
             api \
             python - <<'EOF'
-          from sqlalchemy import create_engine
+          from sqlalchemy import create_engine, text
           engine = create_engine(
               "postgresql+psycopg://casino:secret@postgres:5432/casino_db",
               pool_pre_ping=True,
           )
           with engine.connect() as conn:
-              conn.execute("SELECT 1")
+              conn.execute(text("SELECT 1"))
           print("OK: SQLAlchemy connection successful")
           EOF
 

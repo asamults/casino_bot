@@ -15,7 +15,8 @@ RUN apt-get update \
 
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir -U pip \
+# Keep in sync with GitHub Actions: upgrade pip/setuptools/wheel, then install only from requirements.txt
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
     && pip install --no-cache-dir -r requirements.txt
 
 COPY src/ ./src
