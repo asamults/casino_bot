@@ -8,7 +8,7 @@ from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEV_DATABASE_URL = "postgresql+psycopg://casino:secret@localhost:5432/casino_db"
-DEV_SECRET_KEY = "DEV_ONLY_CHANGE_ME"
+DEV_SECRET_KEY = "DEV_ONLY_CHANGE_ME"  # nosec B105
 DEV_REFRESH_PEPPER = "DEV_REFRESH_PEPPER_CHANGE_ME"
 
 

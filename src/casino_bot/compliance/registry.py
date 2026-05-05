@@ -12,8 +12,8 @@ from casino_bot.compliance.violations import ComplianceViolation
 class Operation(str, Enum):
     """High-level business operations subject to compliance."""
 
-    TOKEN_CREDIT = "token_credit"
-    TOKEN_DEBIT = "token_debit"
+    TOKEN_CREDIT = "token_credit"  # nosec B105
+    TOKEN_DEBIT = "token_debit"  # nosec B105
     TRANSFER = "transfer"
     CASH_OUT = "cash_out"
 

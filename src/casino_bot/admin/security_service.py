@@ -136,7 +136,7 @@ def _create_session_and_tokens(
     access_token, _, access_expires = create_access_token(user.email, user.role)
     return {
         "access_token": access_token,
-        "token_type": "bearer",
+        "token_type": "bearer",  # nosec B105
         "expires_in": int((access_expires - utcnow()).total_seconds()),
         "refresh_token": refresh_token,
         "refresh_expires_in": int((refresh_expires - utcnow()).total_seconds()),

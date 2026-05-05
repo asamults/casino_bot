@@ -9,8 +9,8 @@ from passlib.context import CryptContext
 from casino_bot.settings import settings
 
 ALGORITHM = "HS256"
-TOKEN_TYPE_ACCESS = "access"
-TOKEN_TYPE_REFRESH = "refresh"
+TOKEN_TYPE_ACCESS = "access"  # nosec B105
+TOKEN_TYPE_REFRESH = "refresh"  # nosec B105
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
