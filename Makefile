@@ -7,6 +7,14 @@ IMAGE_NAME = casino-bot:dev
 API_PORT = 8000
 DB_PORT  = 5432
 
+# Local CI-style checks (requires venv with dev tools: ruff, bandit, pip-audit)
+ci-check:
+	ruff check .
+	ruff format --check .
+	pytest -q
+	bandit -r src -ll
+	pip-audit --progress-spinner off
+
 # Build Docker image
 build:
 	docker build -t $(IMAGE_NAME) .

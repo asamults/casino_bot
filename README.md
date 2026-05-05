@@ -98,6 +98,19 @@ From the **repository root** (the `casino_bot` project directory, not a literal 
 
 Tests: `pytest` (`pyproject.toml` sets `pythonpath = ["src"]`).
 
+### Dependency hygiene (Week 1)
+
+- **Single source of truth**: `requirements.txt` is installed the same way in **Docker** (`Dockerfile`), **CI** (GitHub Actions), and local dev.
+- **Local setup**: create a venv, then upgrade installers and install pins:
+  ```bash
+  python3 -m venv .venv && source .venv/bin/activate
+  python -m pip install --upgrade pip setuptools wheel
+  python -m pip install --no-cache-dir -r requirements.txt
+  ```
+- **Supply chain checks** (after install): `ruff check .`, `ruff format --check .`, `pytest`, `bandit -r src -ll`, `pip-audit --progress-spinner off`, `alembic upgrade head` (with a reachable Postgres matching `DATABASE_URL`).
+- **Automation**: [Dependabot](.github/dependabot.yml) opens weekly PRs for `requirements.txt` and periodic PRs for GitHub Actions. Merge only when CI is green.
+- **Docker parity**: `docker compose build` uses the same `requirements.txt` copy + `pip install -r requirements.txt` as CI (see `Dockerfile`).
+
 If Alembic reports **`password authentication failed for user "casino"`**, the username/password in `DATABASE_URL` do not match the running Postgres instance. For the Postgres service in this repo’s `docker-compose.yml`, the defaults are **user `casino`**, password **`secret`**, database **`casino_db`** (`postgresql+psycopg://casino:secret@localhost:5432/casino_db` on the host). If you use another Postgres install or changed `POSTGRES_PASSWORD`, update `.env` to match—or reset the Compose volume (`docker compose down -v`) only if you accept losing that database’s data.
 
 ## Security (Layer 4)
