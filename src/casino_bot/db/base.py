@@ -1,23 +1,5 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
-import os
+from sqlalchemy.orm import DeclarativeBase
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+psycopg://casino:secret@postgres:5432/casino_db",
-)
 
-engine = create_engine(
-    DATABASE_URL,
-    echo=True,
-    future=True,
-    pool_pre_ping=True,
-)
-
-SessionLocal = sessionmaker(
-    bind=engine,
-    autoflush=False,
-    autocommit=False,
-)
-
-Base = declarative_base()
+class Base(DeclarativeBase):
+    pass

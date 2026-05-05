@@ -1,11 +1,5 @@
-from pydantic_settings import BaseSettings
+"""Deprecated: use `casino_bot.settings` instead."""
 
+from casino_bot.settings import settings
 
-class Settings(BaseSettings):
-    DATABASE_URL: str
-
-    class Config:
-        env_file = ".env"
-
-
-settings = Settings()
+__all__ = ["settings"]

@@ -9,6 +9,7 @@ DB_NAME = os.getenv("POSTGRES_DB", "casino")
 DB_USER = os.getenv("POSTGRES_USER", "postgres")
 DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
 
+
 def wait_for_db(retries: int = 30, delay: int = 1) -> None:
     attempt = 0
     while attempt < retries:
@@ -25,9 +26,12 @@ def wait_for_db(retries: int = 30, delay: int = 1) -> None:
             return
         except OperationalError:
             attempt += 1
-            print(f"Postgres not ready, waiting {delay}s... (attempt {attempt}/{retries})")
+            print(
+                f"Postgres not ready, waiting {delay}s... (attempt {attempt}/{retries})"
+            )
             time.sleep(delay)
     raise RuntimeError(f"Postgres is not available after {retries} attempts")
+
 
 if __name__ == "__main__":
     wait_for_db()

@@ -1,24 +1,27 @@
-# alembic/env.py
-
 from logging.config import fileConfig
-from sqlalchemy import engine_from_config, pool
-from alembic import context
-import os
 
-from src.casino_bot.db.base import Base  # declarative_base
-from src.casino_bot.models import *      # noqa
+import os
+from alembic import context
+from sqlalchemy import engine_from_config, pool
+
+from casino_bot.db.base import Base
+from casino_bot.settings import settings
+
+# Import ORM modules so metadata is fully populated
+import casino_bot.db.models  # noqa: F401
+import casino_bot.admin.models  # noqa: F401
 
 config = context.config
 
-fileConfig(config.config_file_name)
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
 
+
 def get_database_url() -> str:
-    return os.getenv(
-        "DATABASE_URL",
-        "postgresql+psycopg://casino:secret@localhost:5432/casino_db",
-    )
+    return os.getenv("DATABASE_URL", settings.DATABASE_URL)
+
 
 def run_migrations_offline():
     context.configure(
@@ -32,8 +35,9 @@ def run_migrations_offline():
     with context.begin_transaction():
         context.run_migrations()
 
+
 def run_migrations_online():
-    configuration = config.get_section(config.config_ini_section)
+    configuration = config.get_section(config.config_ini_section) or {}
     configuration["sqlalchemy.url"] = get_database_url()
 
     connectable = engine_from_config(
@@ -51,6 +55,7 @@ def run_migrations_online():
 
         with context.begin_transaction():
             context.run_migrations()
+
 
 if context.is_offline_mode():
     run_migrations_offline()

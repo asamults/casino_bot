@@ -1,13 +1,13 @@
-# src/casino_bot/admin/rbac.py
-from fastapi import Depends, HTTPException, status
-from .auth import get_current_admin
+"""RBAC role constants.
 
-def require_scope(scope: str):
-    def checker(admin=Depends(get_current_admin)):
-        if scope not in admin.get("scopes", []):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Missing scope: {scope}"
-            )
-        return True
-    return checker
+Supported JWT ``role`` values:
+- ``admin``: standard admin operations (users, tokens, audit read, subscription read).
+- ``superadmin``: full control including admin-user lifecycle and manual subscription activation.
+
+Scopes are not used; authorization is role-based only (minimal surface).
+"""
+
+ROLE_ADMIN = "admin"
+ROLE_SUPERADMIN = "superadmin"
+
+ALL_ADMIN_ROLES = frozenset({ROLE_ADMIN, ROLE_SUPERADMIN})

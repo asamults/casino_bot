@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app/src
 
 WORKDIR /app
 
@@ -22,4 +22,4 @@ COPY src/ ./src
 COPY alembic.ini .
 COPY alembic ./alembic
 
-CMD ["uvicorn", "src.casino_bot.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "casino_bot.main:app", "--host", "0.0.0.0", "--port", "8000"]

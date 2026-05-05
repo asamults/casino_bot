@@ -1,0 +1,78 @@
+name: Security Gates
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  security-gates:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16.11
+        env:
+          POSTGRES_USER: casino
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: casino_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U casino -d casino_db"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install runtime deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff bandit pip-audit
+
+      - name: Set env
+        run: |
+          echo "PYTHONPATH=src" >> $GITHUB_ENV
+          echo "DATABASE_URL=postgresql+psycopg://casino:secret@localhost:5432/casino_db" >> $GITHUB_ENV
+          echo "ENVIRONMENT=production" >> $GITHUB_ENV
+          echo "SECRET_KEY=prod_secret_key_minimum_length_32__" >> $GITHUB_ENV
+          echo "JWT_SIGNING_KEY=prod_jwt_signing_key_minimum_len_32" >> $GITHUB_ENV
+          echo "REFRESH_TOKEN_PEPPER=prod_refresh_pepper_minimum_len_32" >> $GITHUB_ENV
+          echo "CORS_ALLOW_ORIGINS=https://admin.example.com" >> $GITHUB_ENV
+          echo "ALLOWED_HOSTS=api.example.com,localhost" >> $GITHUB_ENV
+
+      - name: Migration check
+        run: |
+          alembic upgrade head
+
+      - name: Migration downgrade smoke
+        run: |
+          alembic downgrade -1
+          alembic upgrade head
+
+      - name: Ruff
+        run: |
+          ruff check src tests
+
+      - name: Tests
+        run: |
+          pytest -q
+
+      - name: Webhook idempotency contract test
+        run: |
+          pytest -q tests/test_billing_webhooks.py
+
+      - name: Bandit high severity gate
+        run: |
+          bandit -r src -ll
+
+      - name: Dependency audit
+        run: |
+          pip-audit --progress-spinner off

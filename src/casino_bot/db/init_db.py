@@ -1,6 +1,7 @@
-from casino_bot.db.session import engine
+import casino_bot.admin.models  # noqa: F401
+import casino_bot.db.models  # noqa: F401
 from casino_bot.db.base import Base
-from casino_bot.db import models  # noqa: F401
+from casino_bot.db.session import engine
 
 
 def init_db() -> None:

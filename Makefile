@@ -1,49 +1,49 @@
-# Makefile для проекта casino_bot
+# Makefile for the casino_bot project
 
-# Имя Docker-образа
+# Docker image name
 IMAGE_NAME = casino-bot:dev
 
-# Порты
+# Ports
 API_PORT = 8000
 DB_PORT  = 5432
 
-# Сборка Docker-образа
+# Build Docker image
 build:
 	docker build -t $(IMAGE_NAME) .
 
-# Запуск контейнеров (локально)
+# Run containers (foreground)
 up:
 	docker compose up --build
 
-# Запуск контейнеров в фоне (detached)
+# Run containers in detached mode
 up-detached:
 	docker compose up -d --build
 
-# Остановка и удаление контейнеров
+# Stop and remove containers
 down:
 	docker compose down
 
-# Перезапуск API без пересборки образа
+# Restart API without rebuilding the image
 restart-api:
 	docker compose restart api
 
-# Просмотр логов всех сервисов
+# Follow logs for all services
 logs:
 	docker compose logs -f
 
-# Просмотр логов API
+# Follow API logs
 logs-api:
 	docker compose logs -f api
 
-# Просмотр логов Postgres
+# Follow Postgres logs
 logs-db:
 	docker compose logs -f postgres
 
-# Очистка неиспользуемых Docker объектов
+# Remove unused Docker objects
 prune:
 	docker system prune -af
 	docker volume prune -f
 
-# Тестовый запуск только API без Postgres (для debug)
+# Run API container only (no Postgres; for debugging)
 run-api:
 	docker run --rm -p $(API_PORT):$(API_PORT) $(IMAGE_NAME)
