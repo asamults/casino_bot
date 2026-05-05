@@ -2,14 +2,61 @@
 
 from __future__ import annotations
 
-from typing import Literal
+import json
+from types import MethodType
+from typing import Any, Literal, get_args, get_origin
 
 from pydantic import field_validator, model_validator
+from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings.sources import PydanticBaseSettingsSource, SettingsError
 
 DEV_DATABASE_URL = "postgresql+psycopg://casino:secret@localhost:5432/casino_db"
 DEV_SECRET_KEY = "DEV_ONLY_CHANGE_ME"  # nosec B105
 DEV_REFRESH_PEPPER = "DEV_REFRESH_PEPPER_CHANGE_ME"
+
+
+def _decode_complex_value_with_csv_list_fallback(
+    source: PydanticBaseSettingsSource,
+    field_name: str,
+    field: FieldInfo,
+    value: Any,
+) -> Any:
+    """Match pydantic-settings JSON parsing for complex env values, with CSV fallback for ``list[str]``.
+
+    ``pydantic-settings`` decodes list/dict fields from env as JSON. Our ``.env.example`` and CI use
+    comma-separated strings for several ``list[str]`` fields; accept both forms.
+    """
+    if not isinstance(value, str):
+        try:
+            return json.loads(value)
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise SettingsError(
+                f'error parsing value for field "{field_name}" from source "{type(source).__name__}"'
+            ) from exc
+
+    stripped = value.strip()
+    try:
+        return json.loads(stripped)
+    except json.JSONDecodeError as exc:
+        if stripped.startswith(("[", "{")):
+            raise SettingsError(
+                f'error parsing value for field "{field_name}" from source "{type(source).__name__}"'
+            ) from exc
+        ann = field.annotation
+        if get_origin(ann) is list and get_args(ann) and get_args(ann)[0] is str:
+            return [part.strip() for part in stripped.split(",") if part.strip()]
+        raise SettingsError(
+            f'error parsing value for field "{field_name}" from source "{type(source).__name__}"'
+        ) from exc
+
+
+def _bound_decode_complex_value(
+    source: PydanticBaseSettingsSource, field_name: str, field: FieldInfo, value: Any
+) -> Any:
+    return _decode_complex_value_with_csv_list_fallback(
+        source, field_name, field, value
+    )
 
 
 class Settings(BaseSettings):
@@ -159,6 +206,23 @@ class Settings(BaseSettings):
         if errors:
             raise ValueError("; ".join(errors))
         return self
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        env_settings.decode_complex_value = MethodType(
+            _bound_decode_complex_value, env_settings
+        )
+        dotenv_settings.decode_complex_value = MethodType(
+            _bound_decode_complex_value, dotenv_settings
+        )
+        return init_settings, env_settings, dotenv_settings, file_secret_settings
 
 
 settings = Settings()

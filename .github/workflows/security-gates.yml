@@ -40,7 +40,8 @@ jobs:
       - name: Set env
         run: |
           echo "PYTHONPATH=src" >> $GITHUB_ENV
-          echo "DATABASE_URL=postgresql+psycopg://casino:secret@localhost:5432/casino_db" >> $GITHUB_ENV
+          # Use 127.0.0.1 (not localhost) so this is not the literal DEV_DATABASE_URL in settings.
+          echo "DATABASE_URL=postgresql+psycopg://casino:secret@127.0.0.1:5432/casino_db" >> $GITHUB_ENV
           echo "ENVIRONMENT=production" >> $GITHUB_ENV
           echo "SECRET_KEY=prod_secret_key_minimum_length_32__" >> $GITHUB_ENV
           echo "JWT_SIGNING_KEY=prod_jwt_signing_key_minimum_len_32" >> $GITHUB_ENV
