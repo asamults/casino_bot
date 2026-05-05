@@ -47,7 +47,7 @@ def test_github_actions_style_production_env(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setenv("JWT_SIGNING_KEY", "prod_jwt_signing_key_minimum_len_32")
     monkeypatch.setenv("REFRESH_TOKEN_PEPPER", "prod_refresh_pepper_minimum_len_32")
     monkeypatch.setenv("CORS_ALLOW_ORIGINS", '["https://admin.example.com"]')
-    monkeypatch.setenv("ALLOWED_HOSTS", "api.example.com,localhost")
+    monkeypatch.setenv("ALLOWED_HOSTS", "api.example.com,localhost,testserver")
     cfg = Settings(_env_file=None)
     assert cfg.DATABASE_URL != DEV_DATABASE_URL
-    assert cfg.ALLOWED_HOSTS == ["api.example.com", "localhost"]
+    assert cfg.ALLOWED_HOSTS == ["api.example.com", "localhost", "testserver"]
