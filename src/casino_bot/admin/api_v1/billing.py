@@ -6,7 +6,11 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import TypeAdapter
 from sqlalchemy.orm import Session
 
-from casino_bot.admin.api_v1.schemas import BillingEventOut, BillingEventsListResponse
+from casino_bot.admin.api_v1.schemas import (
+    BillingEventOut,
+    BillingEventsCleanupResponse,
+    BillingEventsListResponse,
+)
 from casino_bot.admin.deps import superadmin_guard
 from casino_bot.core.database import get_db
 from casino_bot.services.billing_service import (
@@ -81,9 +85,13 @@ def api_billing_metrics(
     return build_metrics(db, from_ts=from_ts, to_ts=to_ts)
 
 
-@router.post("/events/cleanup")
+@router.post("/events/cleanup", response_model=BillingEventsCleanupResponse)
 def api_cleanup_billing_events(
     db: Session = Depends(get_db),
     _: dict = Depends(superadmin_guard()),
 ):
-    return cleanup_old_webhook_events(db)
+    result = cleanup_old_webhook_events(db)
+    return {
+        **result,
+        "note": BillingEventsCleanupResponse.model_fields["note"].default,
+    }

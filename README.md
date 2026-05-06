@@ -328,6 +328,7 @@ curl -s -X POST "http://127.0.0.1:8000/api/v1/billing/webhooks/stripe" \
   - watch dead-letter events (`dead_letter=true`)
 - Retention:
   - `billing_webhook_events` is operational data; keep for `BILLING_WEBHOOK_RETENTION_DAYS`
+  - cleanup only deletes terminal safe statuses: `processed`, `ignored`, `idempotent` (not `failed` / `dead_letter`)
   - manual cleanup: `DATABASE_URL=... python scripts/billing_cleanup.py`
 - Failed payments spike:
   - verify provider status page / API health

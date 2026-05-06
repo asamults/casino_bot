@@ -151,3 +151,14 @@ class BillingEventOut(BaseModel):
 class BillingEventsListResponse(BaseModel):
     items: list[BillingEventOut]
     total: int
+
+
+class BillingEventsCleanupResponse(BaseModel):
+    deleted: int = Field(..., ge=0)
+    cutoff: str
+    note: str = Field(
+        default=(
+            "Cleanup only deletes terminal safe statuses: processed, ignored, idempotent. "
+            "failed/dead_letter are intentionally retained."
+        )
+    )
