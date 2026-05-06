@@ -1,5 +1,8 @@
 ## Webhook dead-letter runbook
 
+### Reproduce (GameDay)
+- `DRILL_SUPERADMIN_TOKEN=dev-drill-superadmin-token scripts/drill/drill_webhook_dead_letter.sh`
+
 ### Symptoms
 - Increasing `casino_bot_webhook_dead_letter_total`
 - Admin shows `dead_letter=true` events

@@ -15,6 +15,19 @@ ci-check:
 	bandit -r src -ll
 	pip-audit --progress-spinner off
 
+# GameDay drills (M3W3)
+drill-smoke:
+	./scripts/drill/smoke.sh
+
+drill-db-down:
+	./scripts/drill/drill_db_down.sh
+
+drill-5xx-spike:
+	./scripts/drill/drill_5xx_spike.sh
+
+drill-webhook-dead-letter:
+	./scripts/drill/drill_webhook_dead_letter.sh
+
 # Build Docker image
 build:
 	docker build -t $(IMAGE_NAME) .

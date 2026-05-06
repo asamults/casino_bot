@@ -1,5 +1,8 @@
 ## DB readiness failure runbook
 
+### Reproduce (GameDay)
+- `scripts/drill/drill_db_down.sh`
+
 ### Symptoms
 - `/ready` returns `503` with `detail="Database unavailable"`
 - `casino_bot_db_ready_state` is `0`

@@ -28,6 +28,12 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://casino:secret@postgres:5432/casino_db}
+      # Operational drills / fault injection (dev/test only; ignored/blocked in production).
+      DRILL_FORCE_DB_NOT_READY: ${DRILL_FORCE_DB_NOT_READY:-}
+      DRILL_FORCE_500_ON_PATH: ${DRILL_FORCE_500_ON_PATH:-}
+      DRILL_SUPERADMIN_TOKEN: ${DRILL_SUPERADMIN_TOKEN:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      PADDLE_WEBHOOK_SECRET: ${PADDLE_WEBHOOK_SECRET:-}
     healthcheck:
       test:
         [
