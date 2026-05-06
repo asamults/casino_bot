@@ -97,11 +97,13 @@ def test_valid_signature_and_idempotency(billing_client):
     raw = json.dumps(payload).encode("utf-8")
     headers = {"stripe-signature": _stripe_sig(settings.STRIPE_WEBHOOK_SECRET, raw)}
 
-    first = client.post("/api/v1/billing/webhooks/stripe", data=raw, headers=headers)
+    first = client.post("/api/v1/billing/webhooks/stripe", content=raw, headers=headers)
     assert first.status_code == 200
     assert first.json()["status"] == "processed"
 
-    second = client.post("/api/v1/billing/webhooks/stripe", data=raw, headers=headers)
+    second = client.post(
+        "/api/v1/billing/webhooks/stripe", content=raw, headers=headers
+    )
     assert second.status_code == 200
     assert second.json()["status"] == "idempotent"
 
@@ -119,7 +121,7 @@ def test_invalid_signature_rejected(billing_client):
     raw = json.dumps(payload).encode("utf-8")
     bad = client.post(
         "/api/v1/billing/webhooks/stripe",
-        data=raw,
+        content=raw,
         headers={"stripe-signature": "t=1,v1=deadbeef"},
     )
     assert bad.status_code == 401
@@ -134,7 +136,9 @@ def test_subscription_sync_and_entitlement_update(billing_client):
         "stripe-signature": _stripe_sig(settings.STRIPE_WEBHOOK_SECRET, raw_create)
     }
     r1 = client.post(
-        "/api/v1/billing/webhooks/stripe", data=raw_create, headers=headers_create
+        "/api/v1/billing/webhooks/stripe",
+        content=raw_create,
+        headers=headers_create,
     )
     assert r1.status_code == 200
 
@@ -149,7 +153,9 @@ def test_subscription_sync_and_entitlement_update(billing_client):
         "stripe-signature": _stripe_sig(settings.STRIPE_WEBHOOK_SECRET, raw_cancel)
     }
     r2 = client.post(
-        "/api/v1/billing/webhooks/stripe", data=raw_cancel, headers=headers_cancel
+        "/api/v1/billing/webhooks/stripe",
+        content=raw_cancel,
+        headers=headers_cancel,
     )
     assert r2.status_code == 200
     db.refresh(sub)
@@ -162,7 +168,7 @@ def test_linking_fallback_customer_id_path(billing_client):
     payload = _stripe_payload("evt_customer_link", user_id=99999)
     raw = json.dumps(payload).encode("utf-8")
     headers = {"stripe-signature": _stripe_sig(settings.STRIPE_WEBHOOK_SECRET, raw)}
-    res = client.post("/api/v1/billing/webhooks/stripe", data=raw, headers=headers)
+    res = client.post("/api/v1/billing/webhooks/stripe", content=raw, headers=headers)
     assert res.status_code == 200
     sub = db.query(Subscription).filter_by(provider_subscription_id="sub_001").first()
     assert sub is not None
@@ -174,7 +180,7 @@ def test_unresolved_mapping_failed_status(billing_client):
     payload = _stripe_payload("evt_unresolved", customer="cus_not_found", user_id=99999)
     raw = json.dumps(payload).encode("utf-8")
     headers = {"stripe-signature": _stripe_sig(settings.STRIPE_WEBHOOK_SECRET, raw)}
-    res = client.post("/api/v1/billing/webhooks/stripe", data=raw, headers=headers)
+    res = client.post("/api/v1/billing/webhooks/stripe", content=raw, headers=headers)
     assert res.status_code == 200
     assert res.json()["status"] == "failed"
     event = (
