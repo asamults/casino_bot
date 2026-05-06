@@ -227,7 +227,8 @@ def safe_process_webhook(
     except HTTPException:
         raise
     except Exception as exc:
-        event_row.attempts_count += 1
+        # attempts_count is incremented at the start of process_normalized_event;
+        # do not increment again here or we prematurely dead-letter on single failures.
         event_row.error_message = "processing_error"
         event_row.last_attempt_at = utcnow()
         event_row.last_error_code = "processing_error"
