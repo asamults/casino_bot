@@ -5,6 +5,7 @@ from __future__ import annotations
 import ipaddress
 import json
 import re
+from datetime import datetime, timezone
 from types import MethodType
 from typing import Any, Literal, get_args, get_origin
 
@@ -160,6 +161,10 @@ class Settings(BaseSettings):
     USER_API_INTERNAL_TOKEN: str = DEV_USER_API_INTERNAL_TOKEN
     ENTITLEMENT_GRACE_SECONDS: int = 0
     ENTITLEMENT_ENFORCEMENT_MODE: Literal["soft", "hard"] = "hard"
+
+    LEGACY_ADMIN_DEPRECATION_SINCE: datetime = datetime(2026, 5, 6, tzinfo=timezone.utc)
+    LEGACY_ADMIN_SUNSET_AT: datetime = datetime(2026, 8, 6, tzinfo=timezone.utc)
+    LEGACY_ADMIN_DISABLE: bool = False
 
     @field_validator(
         "SECRET_KEY", "DATABASE_URL", "JWT_SIGNING_KEY", "REFRESH_TOKEN_PEPPER"

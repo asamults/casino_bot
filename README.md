@@ -64,6 +64,29 @@ curl -s "http://127.0.0.1:8000/api/v1/admin/audit-logs?skip=0&limit=20" \
 
 **Legacy:** the same JWT works with **`/admin/login`**, **`/admin/users`**, etc., for one transition release; new integrations should use **`/api/v1/admin/...`**.
 
+### Legacy `/admin/*` deprecation (M2W3)
+
+Legacy admin routes under **`/admin/*`** remain available for compatibility but are **deprecated**.
+
+- **Signals on legacy responses**:
+  - `Deprecation: true`
+  - `Sunset: <RFC1123 datetime>`
+  - `Link: </api/v1/admin/...>; rel="successor-version"`
+- **Observability**: each legacy request writes a structured log line and an audit event `legacy_admin_route_used` (no secrets; actor is masked in logs).
+- **Disable switch (future)**: set `LEGACY_ADMIN_DISABLE=true` to return **410 Gone** for `/admin/*` while keeping `/api/v1/admin/*` working.
+
+#### Migration steps
+
+1) Replace `/admin/...` calls with `/api/v1/admin/...` equivalents.
+2) Keep using `Authorization: Bearer <access_token>` the same way.
+3) Monitor legacy usage via logs/audit; plan rollout before `LEGACY_ADMIN_SUNSET_AT`.
+
+#### Timeline and env vars
+
+- `LEGACY_ADMIN_DEPRECATION_SINCE` (ISO datetime)
+- `LEGACY_ADMIN_SUNSET_AT` (ISO datetime)
+- `LEGACY_ADMIN_DISABLE` (bool; default false)
+
 **CORS (future SPA):** not enabled by default. When you add a browser admin UI on another origin, configure `CORSMiddleware` in `main.py` with explicit `allow_origins` (e.g. `https://admin.example.com`) instead of `*` if credentials are used.
 
 ## Repository Structure

@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from casino_bot.admin.api_v1.login import LogoutAllBody, LogoutBody, RefreshBody
+from casino_bot.admin.legacy_deprecation import legacy_admin_guard
 from casino_bot.admin.login_service import perform_admin_login
 from casino_bot.admin.security_service import (
     revoke_all_sessions,
@@ -16,7 +17,9 @@ from casino_bot.admin.models import AdminUser
 from casino_bot.core.database import get_db
 from casino_bot.core.pii import mask_email
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(
+    prefix="/admin", tags=["admin"], dependencies=[Depends(legacy_admin_guard)]
+)
 logger = logging.getLogger("casino_bot.auth")
 
 

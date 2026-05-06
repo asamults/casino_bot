@@ -2,10 +2,13 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from casino_bot.admin.deps import admin_guard
+from casino_bot.admin.legacy_deprecation import legacy_admin_guard
 from casino_bot.admin.users_routes import router as admin_users_router
 from casino_bot.core.database import get_db
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(
+    prefix="/admin", tags=["admin"], dependencies=[Depends(legacy_admin_guard)]
+)
 
 router.include_router(admin_users_router, prefix="/users")
 
