@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: postgres:16.11
+    container_name: casino_bot-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: ${POSTGRES_DB:?required}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    container_name: casino_bot-api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DATABASE_URL: ${DATABASE_URL:?required}
+      SECRET_KEY: ${SECRET_KEY:?required}
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:?required}
+      REFRESH_TOKEN_PEPPER: ${REFRESH_TOKEN_PEPPER:?required}
+      USER_API_INTERNAL_TOKEN: ${USER_API_INTERNAL_TOKEN:?required}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:?required}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:?required}
+      BILLING_ALLOWED_RETURN_HOSTS: ${BILLING_ALLOWED_RETURN_HOSTS:?required}
+      BILLING_PROVIDER_PRIMARY: ${BILLING_PROVIDER_PRIMARY:-stripe}
+      BILLING_ENABLE_WEBHOOKS: ${BILLING_ENABLE_WEBHOOKS:-false}
+      BILLING_FAIL_ON_MISSING_SECRETS_IN_PROD: ${BILLING_FAIL_ON_MISSING_SECRETS_IN_PROD:-true}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      PADDLE_WEBHOOK_SECRET: ${PADDLE_WEBHOOK_SECRET:-}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    # Intentionally no host port publishing in this file.
+    # Expose via an external reverse proxy / private network.
+    command: >
+      sh -c "
+      python scripts/wait_for_db.py --timeout-seconds 30 &&
+      alembic upgrade head &&
+      uvicorn casino_bot.main:app --host 0.0.0.0 --port 8000
+      "
+
+volumes:
+  pgdata:
+

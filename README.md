@@ -25,6 +25,13 @@ Casino Bot is a Python-based application designed to automate casino-related ope
 
 All **repository artifacts** stay in **English**: README, inline comments, `Makefile` / CI strings, `.env.example` descriptions, OpenAPI text, and user-facing error messages in code. Day-to-day **development process** (chat, calls, issue triage) may be in Russian or another team language; keep the codebase and docs English-only for consistency and external contributors.
 
+## Productionization baseline (M3W4)
+
+- **Release process**: `docs/ops/release-process.md` and `CHANGELOG.md`
+- **Deployment contract**: `docs/ops/deployment-contract.md`
+- **Secrets policy**: `docs/ops/secrets-policy.md`
+- **Metrics access policy**: `docs/ops/metrics-access.md`
+
 ## Domain, compliance, and subscriptions
 
 - **`users`**: core identity with optional `telegram_user_id` (unique), `whatsapp_phone_e164` (unique E.164 including `+`), optional `billing_customer_id` (indexed, for a future billing provider), `internal_note`, and `is_active`. Token balances live in `token_accounts` with a foreign key to `users.id`.

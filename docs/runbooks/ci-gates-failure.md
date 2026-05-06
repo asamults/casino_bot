@@ -14,4 +14,5 @@
 
 ### Notes
 - If `Security Gates` fails on env parsing, check JSON-only fields like `CORS_ALLOW_ORIGINS`.
+- If `Docker Smoke Test` fails early in Alembic, check that boolean env vars are not passed as empty strings.
 
