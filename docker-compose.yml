@@ -63,6 +63,11 @@ services:
     profiles: ["monitoring"]
     image: grafana/grafana:11.4.0
     container_name: casino_bot-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./monitoring/grafana_dashboard.json:/var/lib/grafana/dashboards/casino_bot_baseline.json:ro
     ports:
       - "3001:3000"
     depends_on:

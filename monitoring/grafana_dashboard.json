@@ -1,0 +1,80 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "expr": "sum(rate(casino_bot_http_requests_total{status=~\"5..\"}[5m])) / sum(rate(casino_bot_http_requests_total[5m]))",
+          "legendFormat": "5xx rate"
+        }
+      ],
+      "title": "HTTP 5xx rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(casino_bot_http_request_duration_seconds_bucket[5m])) by (le, route))",
+          "legendFormat": "{{route}}"
+        }
+      ],
+      "title": "HTTP p95 latency by route",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS" },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 8 },
+      "id": 3,
+      "targets": [
+        { "expr": "casino_bot_db_ready_state", "legendFormat": "db_ready_state" }
+      ],
+      "title": "DB ready state",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS" },
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 8 },
+      "id": 4,
+      "targets": [
+        { "expr": "sum(increase(casino_bot_webhook_failed_total[15m]))", "legendFormat": "failed" },
+        { "expr": "sum(increase(casino_bot_webhook_dead_letter_total[15m]))", "legendFormat": "dead_letter" }
+      ],
+      "title": "Webhook failed / dead-letter (15m increase)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS" },
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 8 },
+      "id": 5,
+      "targets": [
+        { "expr": "sum(rate(casino_bot_legacy_admin_requests_total[5m])) by (route)", "legendFormat": "{{route}}" }
+      ],
+      "title": "Legacy admin usage (rate)",
+      "type": "timeseries"
+    }
+  ],
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["casino_bot", "baseline"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Casino Bot - Observability Baseline",
+  "uid": "casino-bot-baseline",
+  "version": 1
+}
+

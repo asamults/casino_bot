@@ -8,7 +8,7 @@ from jose import JWTError
 from sqlalchemy.orm import Session
 
 from casino_bot.core.database import get_db
-from casino_bot.core.metrics import legacy_admin_requests_total
+from casino_bot.core.metrics import legacy_admin_requests_total, safe_route_label
 from casino_bot.core.pii import mask_email
 from casino_bot.core.security import TOKEN_TYPE_ACCESS, decode_token_of_type
 from casino_bot.services.audit_service import audit_log
@@ -42,7 +42,10 @@ def legacy_admin_guard(
     )
     response.headers["Link"] = f'<{successor}>; rel="successor-version"'
 
-    legacy_admin_requests_total.labels(request.method, request.url.path).inc()
+    route = safe_route_label(
+        getattr(request.scope.get("route"), "path", None)  # type: ignore[union-attr]
+    )
+    legacy_admin_requests_total.labels(request.method, route).inc()
 
     actor = "unknown"
     auth = (request.headers.get("authorization") or "").strip()

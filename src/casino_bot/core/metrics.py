@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import time
 from typing import Callable
 
@@ -24,7 +25,7 @@ http_request_duration_seconds = Histogram(
 legacy_admin_requests_total = Counter(
     f"{APP_NAMESPACE}_legacy_admin_requests_total",
     "Legacy /admin/* requests (deprecated)",
-    labelnames=("method", "path"),
+    labelnames=("method", "route"),
 )
 
 # Billing webhooks
@@ -55,6 +56,27 @@ db_ready_state = Gauge(
     f"{APP_NAMESPACE}_db_ready_state",
     "Database readiness state from last /ready check (1=ready, 0=not ready)",
 )
+
+_ROUTE_ID_RE = re.compile(r"/\d+($|/)")
+
+
+def safe_route_label(route: str | None) -> str:
+    """Normalize route label to avoid high cardinality.
+
+    Prefer FastAPI/Starlette route templates (e.g. ``/admin/users/{id}``).
+    If a raw path slips through, coarse-sanitize numeric segments.
+    """
+    if not route:
+        return "unknown"
+    r = str(route)
+    if "{" in r:
+        return r
+    # last-resort: sanitize integer ids in raw paths
+    return _ROUTE_ID_RE.sub("/{id}\\1", r)
+
+
+def is_noisy_metrics_route(route: str) -> bool:
+    return route in {"/metrics"}
 
 
 def observe_duration_seconds(
