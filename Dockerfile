@@ -20,6 +20,7 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
     && pip install --no-cache-dir -r requirements.txt
 
 COPY src/ ./src
+COPY scripts/ ./scripts
 COPY alembic.ini .
 COPY alembic ./alembic
 
