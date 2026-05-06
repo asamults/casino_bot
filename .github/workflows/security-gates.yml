@@ -36,6 +36,7 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           python -m pip install --no-cache-dir -r requirements.txt
           python -m pip install --no-cache-dir ruff bandit pip-audit
+          python -m pip check
 
       - name: Set env
         run: |
@@ -81,6 +82,7 @@ jobs:
 
       - name: Tests
         run: |
+          python -m compileall -q src
           pytest -q
 
       - name: Webhook idempotency contract test
