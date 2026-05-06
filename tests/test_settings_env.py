@@ -117,3 +117,20 @@ def test_github_actions_style_production_env(monkeypatch: pytest.MonkeyPatch) ->
     cfg = Settings(_env_file=None)
     assert cfg.DATABASE_URL != DEV_DATABASE_URL
     assert cfg.ALLOWED_HOSTS == ["api.example.com"]
+
+
+def test_production_rejects_drill_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL", "postgresql+psycopg://casino:secret@127.0.0.1:5432/casino_db"
+    )
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("SECRET_KEY", "x" * 32)
+    monkeypatch.setenv("JWT_SIGNING_KEY", "y" * 32)
+    monkeypatch.setenv("REFRESH_TOKEN_PEPPER", "z" * 32)
+    monkeypatch.setenv("USER_API_INTERNAL_TOKEN", "prod-token-" + "a" * 24)
+    monkeypatch.setenv("CORS_ALLOW_ORIGINS", '["https://admin.example.com"]')
+    monkeypatch.setenv("ALLOWED_HOSTS", "api.example.com")
+    monkeypatch.setenv("BILLING_ALLOWED_RETURN_HOSTS", "admin.example.com")
+    monkeypatch.setenv("DRILL_FORCE_500_ON_PATH", "/health")
+    with pytest.raises(ValueError, match="DRILL_FORCE_500_ON_PATH"):
+        Settings(_env_file=None)

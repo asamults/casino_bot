@@ -1,7 +1,7 @@
 import logging
 
 import anyio
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -19,6 +19,7 @@ from casino_bot.core.http_middleware import (
     RequestIDMiddleware,
     RequestLoggingMiddleware,
 )
+from casino_bot.core.drill_middleware import DrillFaultInjectionMiddleware
 from casino_bot.core.logging_config import configure_logging
 from casino_bot.core.security_middleware import (
     InMemoryRateLimitMiddleware,
@@ -65,6 +66,7 @@ if settings.ENVIRONMENT == "production":
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(InMemoryRateLimitMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(DrillFaultInjectionMiddleware)
 app.add_middleware(RequestIDMiddleware)
 
 app.include_router(api_v1_router)
@@ -124,7 +126,14 @@ async def health_check():
     summary="Readiness",
     description="Checks database connectivity; returns 503 if the DB is unavailable.",
 )
-async def readiness():
+async def readiness(request: Request):
+    if settings.ENVIRONMENT != "production" and settings.DRILL_FORCE_DB_NOT_READY:
+        db_ready_state.set(0)
+        _logger.warning(
+            "Readiness check failed: forced not-ready (request_id=%s)",
+            getattr(request.state, "request_id", "-"),
+        )
+        raise HTTPException(status_code=503, detail="Database unavailable")
     try:
         await anyio.to_thread.run_sync(check_database_ready)
         db_ready_state.set(1)

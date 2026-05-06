@@ -166,6 +166,13 @@ class Settings(BaseSettings):
     LEGACY_ADMIN_SUNSET_AT: datetime = datetime(2026, 8, 6, tzinfo=timezone.utc)
     LEGACY_ADMIN_DISABLE: bool = False
 
+    # Operational drills / fault injection (dev/test only).
+    #
+    # These flags are **for local GameDay drills** and must never be enabled in production.
+    DRILL_FORCE_DB_NOT_READY: bool = False
+    DRILL_FORCE_500_ON_PATH: str = ""
+    DRILL_SUPERADMIN_TOKEN: str = ""
+
     @field_validator(
         "SECRET_KEY", "DATABASE_URL", "JWT_SIGNING_KEY", "REFRESH_TOKEN_PEPPER"
     )
@@ -225,6 +232,12 @@ class Settings(BaseSettings):
         if self.ENVIRONMENT != "production":
             return self
         errors: list[str] = []
+        if self.DRILL_FORCE_DB_NOT_READY:
+            errors.append("DRILL_FORCE_DB_NOT_READY must not be enabled in production")
+        if self.DRILL_FORCE_500_ON_PATH:
+            errors.append("DRILL_FORCE_500_ON_PATH must not be set in production")
+        if self.DRILL_SUPERADMIN_TOKEN:
+            errors.append("DRILL_SUPERADMIN_TOKEN must not be set in production")
         if not self.SECRET_KEY or self.SECRET_KEY == DEV_SECRET_KEY:
             errors.append(
                 "SECRET_KEY must be set to a non-default value when "
