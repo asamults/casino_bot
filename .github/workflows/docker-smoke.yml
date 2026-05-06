@@ -62,7 +62,7 @@ jobs:
           docker compose run --rm \
             -e DATABASE_URL=postgresql+psycopg://casino:secret@postgres:5432/casino_db \
             api \
-            alembic upgrade head
+            bash -lc "python scripts/wait_for_db.py --timeout-seconds 30 && alembic upgrade head"
 
       - name: FastAPI startup smoke-test
         run: |

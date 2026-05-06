@@ -43,3 +43,4 @@ def test_ready_503(monkeypatch):
     with TestClient(app) as client:
         r = client.get("/ready")
     assert r.status_code == 503
+    assert r.json()["detail"] == "Database unavailable"

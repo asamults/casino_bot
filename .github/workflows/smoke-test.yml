@@ -56,7 +56,9 @@ jobs:
           python -c "from sqlalchemy import create_engine; engine = create_engine('$DATABASE_URL'); engine.connect(); print('OK: database connection')"
 
       - name: Apply migrations (Alembic)
-        run: alembic upgrade head
+        run: |
+          python scripts/wait_for_db.py --timeout-seconds 30
+          alembic upgrade head
 
       - name: Run API smoke-test
         run: |

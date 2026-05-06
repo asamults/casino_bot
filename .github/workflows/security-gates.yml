@@ -65,10 +65,12 @@ jobs:
 
       - name: Migration check
         run: |
+          python scripts/wait_for_db.py --timeout-seconds 30
           alembic upgrade head
 
       - name: Migration downgrade smoke
         run: |
+          python scripts/wait_for_db.py --timeout-seconds 30
           alembic downgrade -1
           alembic upgrade head
 
