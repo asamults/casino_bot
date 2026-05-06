@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
+import re
 from types import MethodType
 from typing import Any, Literal, get_args, get_origin
 
@@ -14,6 +16,52 @@ from pydantic_settings.sources import PydanticBaseSettingsSource, SettingsError
 DEV_DATABASE_URL = "postgresql+psycopg://casino:secret@localhost:5432/casino_db"
 DEV_SECRET_KEY = "DEV_ONLY_CHANGE_ME"  # nosec B105
 DEV_REFRESH_PEPPER = "DEV_REFRESH_PEPPER_CHANGE_ME"
+DEV_USER_API_INTERNAL_TOKEN = "dev-user-api-token"  # nosec B105
+
+_HOSTNAME_RE = re.compile(
+    r"^(?=.{1,253}$)(?!-)[a-z0-9-]{1,63}(?<!-)(?:\.(?!-)[a-z0-9-]{1,63}(?<!-))*$"
+)
+
+
+def _is_localhostish(host: str) -> bool:
+    if host in {"localhost"}:
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return ip.is_loopback
+
+
+def _validate_hostname_list(
+    name: str, hosts: list[str], *, allow_localhost: bool
+) -> list[str]:
+    cleaned: list[str] = []
+    for raw in hosts:
+        h = (raw or "").strip().lower()
+        if not h:
+            raise ValueError(f"{name} must not contain empty entries")
+        if any(x in h for x in ("://", "/", "?", "#", "@")):
+            raise ValueError(
+                f"{name} must contain hostnames only (no scheme/path/query)"
+            )
+        if ":" in h:
+            raise ValueError(f"{name} must not include ports")
+        if "*" in h:
+            raise ValueError(f"{name} must not include wildcards")
+        if h.startswith(".") or h.endswith("."):
+            raise ValueError(f"{name} must not start/end with '.'")
+        if _is_localhostish(h):
+            if not allow_localhost:
+                raise ValueError(
+                    f"{name} cannot include localhost/loopback in production"
+                )
+            cleaned.append(h)
+            continue
+        if not _HOSTNAME_RE.match(h):
+            raise ValueError(f"{name} contains invalid hostname: {h!r}")
+        cleaned.append(h)
+    return cleaned
 
 
 def _decode_complex_value_with_csv_list_fallback(
@@ -39,6 +87,11 @@ def _decode_complex_value_with_csv_list_fallback(
     try:
         return json.loads(stripped)
     except json.JSONDecodeError as exc:
+        # Enforce JSON-only for selected list fields (contract).
+        if field_name == "CORS_ALLOW_ORIGINS":
+            raise SettingsError(
+                f'error parsing value for field "{field_name}" from source "{type(source).__name__}"'
+            ) from exc
         if stripped.startswith(("[", "{")):
             raise SettingsError(
                 f'error parsing value for field "{field_name}" from source "{type(source).__name__}"'
@@ -104,7 +157,7 @@ class Settings(BaseSettings):
     BILLING_POLICY_TOS_URL: str = ""
     BILLING_POLICY_REFUND_URL: str = ""
     BILLING_POLICY_CANCELLATION_URL: str = ""
-    USER_API_INTERNAL_TOKEN: str = "dev-user-api-token"
+    USER_API_INTERNAL_TOKEN: str = DEV_USER_API_INTERNAL_TOKEN
     ENTITLEMENT_GRACE_SECONDS: int = 0
     ENTITLEMENT_ENFORCEMENT_MODE: Literal["soft", "hard"] = "hard"
 
@@ -117,11 +170,14 @@ class Settings(BaseSettings):
 
     @field_validator("CORS_ALLOW_ORIGINS", mode="before")
     @classmethod
-    def split_csv_origins(cls, value):
-        if isinstance(value, str):
-            raw = [item.strip() for item in value.split(",")]
-            return [item for item in raw if item]
-        return value
+    def cors_origins_must_be_json_list(cls, value):
+        # Env source for list[str] is decoded as JSON by pydantic-settings; keep
+        # this validator to catch non-list shapes from non-env sources.
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return value
+        raise ValueError("CORS_ALLOW_ORIGINS must be a JSON list of strings")
 
     @field_validator("ALLOWED_HOSTS", mode="before")
     @classmethod
@@ -140,6 +196,24 @@ class Settings(BaseSettings):
             raw = [item.strip() for item in value.split(",")]
             return [item for item in raw if item]
         return value
+
+    @field_validator("ALLOWED_HOSTS")
+    @classmethod
+    def validate_allowed_hosts(cls, v: list[str], info):
+        allow_localhost = info.data.get("ENVIRONMENT") != "production"
+        return _validate_hostname_list(
+            "ALLOWED_HOSTS", list(v or []), allow_localhost=allow_localhost
+        )
+
+    @field_validator("BILLING_ALLOWED_RETURN_HOSTS")
+    @classmethod
+    def validate_billing_allowed_return_hosts(cls, v: list[str], info):
+        allow_localhost = info.data.get("ENVIRONMENT") != "production"
+        return _validate_hostname_list(
+            "BILLING_ALLOWED_RETURN_HOSTS",
+            list(v or []),
+            allow_localhost=allow_localhost,
+        )
 
     @model_validator(mode="after")
     def validate_production_secrets(self) -> Settings:
@@ -186,6 +260,10 @@ class Settings(BaseSettings):
             )
         if not self.ALLOWED_HOSTS:
             errors.append("ALLOWED_HOSTS must be configured in production")
+        if self.USER_API_INTERNAL_TOKEN in ("", DEV_USER_API_INTERNAL_TOKEN):
+            errors.append(
+                "USER_API_INTERNAL_TOKEN must be configured to a non-default value in production"
+            )
         if (
             self.BILLING_ENABLE_WEBHOOKS
             and self.BILLING_FAIL_ON_MISSING_SECRETS_IN_PROD

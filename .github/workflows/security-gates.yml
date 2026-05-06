@@ -40,15 +40,28 @@ jobs:
       - name: Set env
         run: |
           echo "PYTHONPATH=src" >> $GITHUB_ENV
-          # Use 127.0.0.1 (not localhost) so this is not the literal DEV_DATABASE_URL in settings.
+          # Default env for tests/migrations (no production-only host hardening).
           echo "DATABASE_URL=postgresql+psycopg://casino:secret@127.0.0.1:5432/casino_db" >> $GITHUB_ENV
-          echo "ENVIRONMENT=production" >> $GITHUB_ENV
-          echo "SECRET_KEY=prod_secret_key_minimum_length_32__" >> $GITHUB_ENV
-          echo "JWT_SIGNING_KEY=prod_jwt_signing_key_minimum_len_32" >> $GITHUB_ENV
-          echo "REFRESH_TOKEN_PEPPER=prod_refresh_pepper_minimum_len_32" >> $GITHUB_ENV
-          echo 'CORS_ALLOW_ORIGINS=["https://admin.example.com"]' >> $GITHUB_ENV
-          # Starlette/FastAPI TestClient uses Host: testserver; TrustedHostMiddleware rejects it otherwise.
-          echo "ALLOWED_HOSTS=api.example.com,localhost,testserver" >> $GITHUB_ENV
+          echo "ENVIRONMENT=development" >> $GITHUB_ENV
+          echo "CORS_ALLOW_ORIGINS=[\"https://admin.example.com\"]" >> $GITHUB_ENV
+          echo "ALLOWED_HOSTS=localhost,127.0.0.1,testserver" >> $GITHUB_ENV
+
+      - name: Validate env contract (.env.example)
+        run: |
+          python scripts/validate_env_contract.py --env-file .env.example
+
+      - name: Validate env contract (production gate)
+        run: |
+          ENVIRONMENT=production \
+          DATABASE_URL=postgresql+psycopg://casino:secret@127.0.0.1:5432/casino_db \
+          SECRET_KEY=prod_secret_key_minimum_length_32__ \
+          JWT_SIGNING_KEY=prod_jwt_signing_key_minimum_len_32 \
+          REFRESH_TOKEN_PEPPER=prod_refresh_pepper_minimum_len_32 \
+          USER_API_INTERNAL_TOKEN=prod_user_api_internal_token_min_len_32_____ \
+          CORS_ALLOW_ORIGINS='[\"https://admin.example.com\"]' \
+          ALLOWED_HOSTS=api.example.com \
+          BILLING_ALLOWED_RETURN_HOSTS=admin.example.com \
+          python scripts/validate_env_contract.py --env-file /dev/null
 
       - name: Migration check
         run: |
