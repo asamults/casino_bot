@@ -1,5 +1,7 @@
 """Admin OAuth2 password login (canonical path for new clients)."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, Field
@@ -14,8 +16,10 @@ from casino_bot.admin.security_service import (
 from casino_bot.admin.deps import admin_guard
 from casino_bot.admin.models import AdminUser
 from casino_bot.core.database import get_db
+from casino_bot.core.pii import mask_email
 
 router = APIRouter(tags=["admin"])
+logger = logging.getLogger("casino_bot.auth")
 
 
 class RefreshBody(BaseModel):
@@ -41,13 +45,20 @@ def admin_login_v1(
     form: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
-    return perform_admin_login(
+    result = perform_admin_login(
         db,
         username=form.username,
         password=form.password,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
+    logger.info(
+        "admin_login request_id=%s email=%s status=%s",
+        getattr(request.state, "request_id", "-"),
+        mask_email(form.username),
+        "ok",
+    )
+    return result
 
 
 @router.post("/refresh")

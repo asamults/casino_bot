@@ -11,7 +11,9 @@ from casino_bot.admin.deps import superadmin_guard
 from casino_bot.core.database import get_db
 from casino_bot.services.billing_service import (
     build_metrics,
+    cleanup_old_webhook_events,
     list_billing_events,
+    undelete_dead_letter,
     replay_failed_events,
     replay_webhook_event,
 )
@@ -50,6 +52,15 @@ def api_replay_billing_event(
     return replay_webhook_event(db, event_id=event_id)
 
 
+@router.post("/events/{event_id}/undelete-dead-letter")
+def api_undelete_dead_letter(
+    event_id: int,
+    db: Session = Depends(get_db),
+    _: dict = Depends(superadmin_guard()),
+):
+    return undelete_dead_letter(db, event_id=event_id)
+
+
 @router.post("/events/replay-failed")
 def api_replay_failed_events(
     db: Session = Depends(get_db),
@@ -68,3 +79,11 @@ def api_billing_metrics(
     to_ts: datetime | None = Query(None, alias="to"),
 ):
     return build_metrics(db, from_ts=from_ts, to_ts=to_ts)
+
+
+@router.post("/events/cleanup")
+def api_cleanup_billing_events(
+    db: Session = Depends(get_db),
+    _: dict = Depends(superadmin_guard()),
+):
+    return cleanup_old_webhook_events(db)

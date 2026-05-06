@@ -133,6 +133,9 @@ class BillingWebhookEvent(Base):
         Boolean, nullable=False, default=False, server_default="false", index=True
     )
     last_replayed_at = Column(DateTime(timezone=True), nullable=True)
+    last_attempt_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    last_error_code = Column(String(64), nullable=True)
+    last_error_message = Column(String(512), nullable=True)
 
 
 class TokenAccount(Base):

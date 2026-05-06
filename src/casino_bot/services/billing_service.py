@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import Counter
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
 from fastapi import HTTPException
@@ -16,6 +16,7 @@ from casino_bot.billing.providers.base import (
     NotImplementedForProvider,
 )
 from casino_bot.db.models import BillingWebhookEvent, Subscription, User
+from casino_bot.core.pii import mask_token_like
 from casino_bot.services.audit_service import audit_log
 from casino_bot.settings import settings
 from casino_bot.core.security import utcnow
@@ -47,9 +48,14 @@ def process_normalized_event(
     db: Session, *, event_row: BillingWebhookEvent, event: NormalizedBillingEvent
 ) -> str:
     event_row.attempts_count += 1
+    event_row.last_attempt_at = utcnow()
+    event_row.last_error_code = None
+    event_row.last_error_message = None
     if not event.external_event_id:
         event_row.status = "ignored"
         event_row.error_message = "Missing external_event_id"
+        event_row.last_error_code = "missing_external_event_id"
+        event_row.last_error_message = "Missing external_event_id"
         event_row.processed_at = utcnow()
         db.flush()
         return "ignored"
@@ -57,6 +63,8 @@ def process_normalized_event(
     if event.status is None and event.event_type:
         event_row.status = "ignored"
         event_row.error_message = "Unsupported event type"
+        event_row.last_error_code = "unsupported_event"
+        event_row.last_error_message = "Unsupported event type"
         event_row.processed_at = utcnow()
         db.flush()
         return "ignored"
@@ -65,6 +73,8 @@ def process_normalized_event(
     if user is None:
         event_row.status = "failed"
         event_row.error_message = "Unable to map event to user"
+        event_row.last_error_code = "mapping_failed"
+        event_row.last_error_message = "Unable to map event to user"
         event_row.processed_at = utcnow()
         if event_row.attempts_count >= settings.BILLING_DEAD_LETTER_ATTEMPTS:
             event_row.dead_letter = True
@@ -203,6 +213,9 @@ def safe_process_webhook(
     except Exception as exc:
         event_row.attempts_count += 1
         event_row.error_message = "processing_error"
+        event_row.last_attempt_at = utcnow()
+        event_row.last_error_code = "processing_error"
+        event_row.last_error_message = "processing_error"
         if event_row.attempts_count >= settings.BILLING_DEAD_LETTER_ATTEMPTS:
             event_row.dead_letter = True
         db.commit()
@@ -234,14 +247,6 @@ def _validate_plan(plan_code: str) -> None:
                 "message": "Unknown or unsupported plan",
             },
         )
-
-
-def mask_value(value: str | None) -> str | None:
-    if not value:
-        return None
-    if len(value) <= 6:
-        return "***"
-    return f"{value[:3]}***{value[-3:]}"
 
 
 def create_checkout_session(
@@ -284,7 +289,7 @@ def create_checkout_session(
         details={
             "provider": result.provider,
             "plan_code": plan_code,
-            "customer_id": mask_value(customer_id),
+            "customer_id": mask_token_like(customer_id),
         },
     )
     db.commit()
@@ -361,6 +366,14 @@ def request_resume_subscription(db: Session, *, user_id: int) -> dict:
 
 
 def create_portal_link(db: Session, *, user_id: int, return_url: str) -> dict:
+    if not settings.BILLING_ENABLE_PORTAL:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "PORTAL_DISABLED",
+                "message": "Customer portal is disabled",
+            },
+        )
     _validate_return_url(return_url)
     user = db.query(User).filter(User.id == user_id).first()
     if user is None or not user.billing_customer_id:
@@ -408,6 +421,32 @@ def replay_webhook_event(db: Session, *, event_id: int) -> dict:
         "attempts_count": row.attempts_count,
         "dead_letter": row.dead_letter,
     }
+
+
+def undelete_dead_letter(db: Session, *, event_id: int) -> dict:
+    row = (
+        db.query(BillingWebhookEvent).filter(BillingWebhookEvent.id == event_id).first()
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Billing event not found")
+    row.dead_letter = False
+    row.last_error_code = None
+    row.last_error_message = None
+    db.commit()
+    return {"status": "ok", "dead_letter": row.dead_letter}
+
+
+def cleanup_old_webhook_events(db: Session, *, now: datetime | None = None) -> dict:
+    now = now or datetime.now(UTC)
+    cutoff = now - timedelta(days=max(0, settings.BILLING_WEBHOOK_RETENTION_DAYS))
+    q = db.query(BillingWebhookEvent).filter(
+        BillingWebhookEvent.received_at < cutoff,
+        BillingWebhookEvent.status.in_(["processed", "ignored", "idempotent"]),
+    )
+    count = q.count()
+    q.delete(synchronize_session=False)
+    db.commit()
+    return {"deleted": count, "cutoff": cutoff.isoformat()}
 
 
 def replay_failed_events(db: Session, *, provider: str | None, limit: int) -> dict:

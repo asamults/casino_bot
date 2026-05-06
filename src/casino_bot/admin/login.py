@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -12,8 +14,10 @@ from casino_bot.admin.security_service import (
 from casino_bot.admin.deps import admin_guard
 from casino_bot.admin.models import AdminUser
 from casino_bot.core.database import get_db
+from casino_bot.core.pii import mask_email
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+logger = logging.getLogger("casino_bot.auth")
 
 
 @router.post("/login")
@@ -23,13 +27,21 @@ def login(
     db: Session = Depends(get_db),
 ):
     """Legacy path; prefer ``POST /api/v1/admin/login`` for new clients."""
-    return perform_admin_login(
+    result = perform_admin_login(
         db,
         username=form.username,
         password=form.password,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
+    logger.info(
+        "admin_login request_id=%s email=%s status=%s legacy=%s",
+        getattr(request.state, "request_id", "-"),
+        mask_email(form.username),
+        "ok",
+        True,
+    )
+    return result
 
 
 @router.post("/refresh")

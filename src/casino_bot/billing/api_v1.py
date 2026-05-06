@@ -18,6 +18,7 @@ from casino_bot.services.billing_service import (
     request_resume_subscription,
     safe_process_webhook,
 )
+from casino_bot.core.pii import mask_token_like
 
 logger = logging.getLogger("casino_bot.billing")
 router = APIRouter(prefix="/api/v1/billing", tags=["billing"])
@@ -47,20 +48,24 @@ async def billing_webhook(
     row = create_webhook_event(db, event=event, raw_body=raw_body)
     if row is None:
         logger.info(
-            "billing_webhook idempotent request_id=%s provider=%s external_event_id=%s",
+            "billing_webhook request_id=%s provider=%s external_event_id=%s status=%s",
             getattr(request.state, "request_id", "-"),
             provider,
-            event.external_event_id,
+            mask_token_like(event.external_event_id),
+            "idempotent",
         )
         return {"status": "idempotent"}
 
     status = safe_process_webhook(db, event_row=row, event=event)
     logger.info(
-        "billing_webhook request_id=%s provider=%s external_event_id=%s status=%s",
+        "billing_webhook request_id=%s provider=%s external_event_id=%s billing_event_id=%s status=%s dead_letter=%s attempts_count=%s",
         getattr(request.state, "request_id", "-"),
         provider,
-        event.external_event_id,
+        mask_token_like(event.external_event_id),
+        row.id,
         status,
+        row.dead_letter,
+        row.attempts_count,
     )
     return {"status": status}
 

@@ -326,6 +326,9 @@ curl -s -X POST "http://127.0.0.1:8000/api/v1/billing/webhooks/stripe" \
   - inspect `GET /api/v1/admin/billing/events?status=failed`
   - replay one event or batch failed events
   - watch dead-letter events (`dead_letter=true`)
+- Retention:
+  - `billing_webhook_events` is operational data; keep for `BILLING_WEBHOOK_RETENTION_DAYS`
+  - manual cleanup: `DATABASE_URL=... python scripts/billing_cleanup.py`
 - Failed payments spike:
   - verify provider status page / API health
   - keep entitlement grace via `ENTITLEMENT_GRACE_SECONDS`

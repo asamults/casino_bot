@@ -144,6 +144,8 @@ class BillingEventOut(BaseModel):
     status: str
     attempts_count: int
     dead_letter: bool
+    last_attempt_at: datetime | None = None
+    last_error_code: str | None = None
 
 
 class BillingEventsListResponse(BaseModel):
