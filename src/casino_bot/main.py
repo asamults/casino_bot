@@ -3,7 +3,7 @@ import logging
 import anyio
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from casino_bot.admin.api_v1.router import router as api_v1_router
@@ -25,7 +25,10 @@ from casino_bot.core.security_middleware import (
     SecurityHeadersMiddleware,
 )
 from casino_bot.db.session import check_database_ready
+from casino_bot.core.metrics import db_ready_state
 from casino_bot.settings import settings
+
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 configure_logging(settings.LOG_LEVEL)
 _logger = logging.getLogger("casino_bot.main")
@@ -124,10 +127,17 @@ async def health_check():
 async def readiness():
     try:
         await anyio.to_thread.run_sync(check_database_ready)
+        db_ready_state.set(1)
     except Exception as exc:
+        db_ready_state.set(0)
         _logger.warning("Readiness check failed: %s", exc)
         raise HTTPException(
             status_code=503,
             detail="Database unavailable",
         ) from exc
     return {"status": "ready"}
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)

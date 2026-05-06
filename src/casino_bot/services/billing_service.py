@@ -15,6 +15,13 @@ from casino_bot.billing.providers.base import (
     NormalizedBillingEvent,
     NotImplementedForProvider,
 )
+from casino_bot.core.metrics import (
+    observe_duration_seconds,
+    webhook_dead_letter_total,
+    webhook_failed_total,
+    webhook_processed_total,
+    webhook_processing_seconds,
+)
 from casino_bot.db.models import BillingWebhookEvent, Subscription, User
 from casino_bot.core.pii import mask_token_like
 from casino_bot.services.audit_service import audit_log
@@ -78,6 +85,8 @@ def process_normalized_event(
         event_row.processed_at = utcnow()
         if event_row.attempts_count >= settings.BILLING_DEAD_LETTER_ATTEMPTS:
             event_row.dead_letter = True
+            webhook_dead_letter_total.labels(event.provider, "mapping_failed").inc()
+        webhook_failed_total.labels(event.provider, "mapping_failed").inc()
         audit_log(
             db,
             actor="billing-webhook",
@@ -93,6 +102,7 @@ def process_normalized_event(
     sub = _upsert_subscription(db, event=event, user_id=user.id)
     event_row.status = "processed"
     event_row.processed_at = utcnow()
+    webhook_processed_total.labels(event.provider).inc()
     audit_log(
         db,
         actor="billing-webhook",
@@ -205,7 +215,13 @@ def safe_process_webhook(
     db: Session, *, event_row: BillingWebhookEvent, event: NormalizedBillingEvent
 ) -> str:
     try:
-        status = process_normalized_event(db, event_row=event_row, event=event)
+
+        def _run() -> str:
+            return process_normalized_event(db, event_row=event_row, event=event)
+
+        status = observe_duration_seconds(
+            webhook_processing_seconds, (event.provider,), _run
+        )
         db.commit()
         return status
     except HTTPException:
@@ -218,6 +234,8 @@ def safe_process_webhook(
         event_row.last_error_message = "processing_error"
         if event_row.attempts_count >= settings.BILLING_DEAD_LETTER_ATTEMPTS:
             event_row.dead_letter = True
+            webhook_dead_letter_total.labels(event.provider, "processing_error").inc()
+        webhook_failed_total.labels(event.provider, "processing_error").inc()
         db.commit()
         raise HTTPException(
             status_code=500, detail="Webhook processing failed"

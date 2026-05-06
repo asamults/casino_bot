@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: casino_bot
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8000"]
+
+rule_files:
+  - /etc/prometheus/alert_rules.yml
+

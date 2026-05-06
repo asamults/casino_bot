@@ -1,0 +1,30 @@
+groups:
+  - name: casino_bot_baseline
+    rules:
+      - alert: CasinoBotReadyDown
+        expr: casino_bot_db_ready_state == 0
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: "/ready indicates DB unavailable"
+
+      - alert: CasinoBotHTTP5xxSpike
+        expr: |
+          sum(rate(casino_bot_http_requests_total{status=~"5.."}[5m]))
+          /
+          sum(rate(casino_bot_http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: "HTTP 5xx rate > 5% over 5m"
+
+      - alert: CasinoBotDeadLetterGrowth
+        expr: sum(increase(casino_bot_webhook_dead_letter_total[15m])) > 0
+        for: 5m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "Dead-letter count is increasing"
+
