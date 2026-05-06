@@ -8,6 +8,7 @@ groups:
           severity: page
         annotations:
           summary: "/ready indicates DB unavailable"
+          runbook: "docs/runbooks/db-readiness-failure.md"
 
       - alert: CasinoBotHTTP5xxSpike
         expr: |
@@ -19,6 +20,7 @@ groups:
           severity: page
         annotations:
           summary: "HTTP 5xx rate > 5% over 5m"
+          runbook: "docs/runbooks/ci-gates-failure.md"
 
       - alert: CasinoBotDeadLetterGrowth
         expr: sum(increase(casino_bot_webhook_dead_letter_total[15m])) > 0
@@ -27,4 +29,5 @@ groups:
           severity: ticket
         annotations:
           summary: "Dead-letter count is increasing"
+          runbook: "docs/runbooks/webhook-dead-letter.md"
 
