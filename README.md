@@ -361,6 +361,16 @@ curl -s -X POST "http://127.0.0.1:8000/api/v1/billing/webhooks/stripe" \
   - keep existing entitlements during grace window
   - process backlog via replay when provider recovers
 
+## Python 3.13 readiness (Week 4)
+
+Python 3.13 removes `crypt`. Current `passlib` may import `crypt` and emit a deprecation warning on Python 3.12+.
+
+- **Week 4 decision**: keep hashing implementation unchanged (avoid breaking password verification), but silence the single known warning in tests only.
+- **Plan**:
+  - Evaluate a `passlib` replacement or a maintained fork that does not depend on `crypt`.
+  - Keep existing bcrypt hashes compatible; add a dual-verify window if an implementation change is required.
+  - Run CI matrix with Python 3.13 once dependencies are ready (future week).
+
 ## Installation and Setup
 1. Clone the repository:
 ```bash
