@@ -51,6 +51,24 @@ echo "== pg_backup_encrypt =="
 echo "Tool:    $BACKUP_ENCRYPT_TOOL"
 echo "Dump:    $DUMP_PATH"
 
+# Until encryption succeeds, the plaintext dump on disk is the leak risk.
+# The trap shreds it on ANY abnormal exit; we clear DUMP_PATH only after
+# the configured cleanup step at the end of the success path.
+DUMP_PATH_TO_CLEAN="$DUMP_PATH"
+cleanup_plaintext_on_error() {
+  local code=$?
+  if [[ $code -ne 0 && -n "${DUMP_PATH_TO_CLEAN:-}" && -e "$DUMP_PATH_TO_CLEAN" ]]; then
+    echo "-- aborting: shredding plaintext dump $DUMP_PATH_TO_CLEAN --" >&2
+    if command -v shred >/dev/null 2>&1; then
+      shred -u "$DUMP_PATH_TO_CLEAN" 2>/dev/null || rm -f "$DUMP_PATH_TO_CLEAN"
+    else
+      rm -f "$DUMP_PATH_TO_CLEAN"
+    fi
+  fi
+  exit $code
+}
+trap cleanup_plaintext_on_error ERR INT TERM
+
 # --- 1) plaintext dump ----------------------------------------------------
 BACKUP_DIR="$BACKUP_DIR" \
 BACKUP_NAME="$BACKUP_NAME" \
@@ -147,6 +165,10 @@ if [[ "$KEEP_PLAINTEXT" != "true" ]]; then
     rm -f "$DUMP_PATH"
   fi
 fi
+# Past this point the encrypted artifact and sidecars are the deliverable;
+# the error trap no longer needs to shred a plaintext file.
+DUMP_PATH_TO_CLEAN=""
+trap - ERR INT TERM
 
 ls -lh "$ENC_PATH" "$SHA_PATH" "$META_PATH"
 echo "OK: encrypted backup ready -> $ENC_PATH"

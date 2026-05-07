@@ -75,6 +75,16 @@ jobs:
           alembic downgrade -1
           alembic upgrade head
 
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends shellcheck
+          shellcheck --version
+
+      - name: Shell lint (bash -n + shellcheck)
+        run: |
+          REQUIRE_SHELLCHECK=1 ./scripts/lint_shell.sh
+
       - name: Ruff
         run: |
           ruff check .

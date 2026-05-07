@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 BASE_URL="${BASE_URL:-https://api.example.com}"
 HOST_HEADER="${HOST_HEADER:-api.example.com}"

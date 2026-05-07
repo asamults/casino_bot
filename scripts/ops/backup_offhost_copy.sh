@@ -23,7 +23,7 @@
 #   2 bad input
 #   3 copy / verify failure
 
-set -euo pipefail
+set -Eeuo pipefail
 
 BACKUP_FILE="${BACKUP_FILE:?BACKUP_FILE is required (path to .dump.age|.dump.gpg)}"
 BACKUP_DEST="${BACKUP_DEST:?BACKUP_DEST is required (local dir or user@host:/path/)}"

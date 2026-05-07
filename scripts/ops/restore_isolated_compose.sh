@@ -30,7 +30,7 @@
 #   2 bad input
 #   3 decryption / restore / verify failure
 
-set -euo pipefail
+set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"

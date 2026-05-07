@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
 

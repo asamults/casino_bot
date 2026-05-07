@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
 
@@ -90,11 +90,12 @@ for _ in $(seq 1 "$attempts"); do
 done
 
 echo "Checking admin listing (dead_letter=true)..."
-dead_letter_total="$(curl -fsS --max-time 10 \
+admin_response="$(curl -fsS --max-time 10 \
   -H "Authorization: Bearer $token" \
-  "$API_BASE_URL/api/v1/admin/billing/events?provider=$provider&dead_letter=true&limit=200" | python - <<'PY'
-import json, sys
-body = json.loads(sys.stdin.read() or "{}")
+  "$API_BASE_URL/api/v1/admin/billing/events?provider=$provider&dead_letter=true&limit=200")"
+dead_letter_total="$(ADMIN_RESPONSE="$admin_response" python - <<'PY'
+import json, os
+body = json.loads(os.environ.get("ADMIN_RESPONSE") or "{}")
 print(int(body.get("total") or 0))
 PY
 )"

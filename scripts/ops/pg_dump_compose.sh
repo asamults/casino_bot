@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
@@ -20,7 +20,7 @@ echo "Output: $OUT_PATH"
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d "$POSTGRES_SERVICE"
 
 echo "Waiting for Postgres to be healthy..."
-for i in {1..60}; do
+for _ in {1..60}; do
   status="$(docker inspect --format='{{.State.Health.Status}}' casino_bot-postgres 2>/dev/null || true)"
   if [[ "$status" == "healthy" ]]; then
     break

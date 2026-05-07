@@ -97,6 +97,21 @@ rehearsal-offhost:
 	  KEEP_STACK="$${KEEP_STACK:-false}" \
 	  ./scripts/ops/rehearsal_offhost_full.sh
 
+# Shell lint gate (M5W3): bash -n always; shellcheck if installed.
+# REQUIRE_SHELLCHECK=1 fails closed when shellcheck is missing (used in CI).
+shell-lint:
+	./scripts/lint_shell.sh
+
+shell-lint-strict:
+	REQUIRE_SHELLCHECK=1 ./scripts/lint_shell.sh
+
+# Backup retention (M5W3) — see docs/ops/backup-retention-policy.md
+backup-retention-dry-run:
+	./scripts/ops/backup_retention.sh
+
+backup-retention-apply:
+	APPLY=true ./scripts/ops/backup_retention.sh
+
 staging-up:
 	docker compose --env-file .env.staging -f docker-compose.staging.yml up -d --build
 

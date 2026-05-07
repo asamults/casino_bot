@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
@@ -70,11 +70,13 @@ wait_http_ok() {
 
 http_status_and_request_id() {
   local url="$1"
-  curl -sS -o /dev/null -D - --max-time 5 "$url" | python - <<'PY'
-import sys
+  local headers
+  headers="$(curl -sS -o /dev/null -D - --max-time 5 "$url")"
+  HTTP_HEADERS="$headers" python - <<'PY'
+import os
 status = None
 rid = "-"
-for line in sys.stdin.read().splitlines():
+for line in os.environ.get("HTTP_HEADERS", "").splitlines():
     if line.startswith("HTTP/"):
         try:
             status = int(line.split()[1])
@@ -88,10 +90,12 @@ PY
 
 metric_value() {
   local metric_name="$1"
-  curl -fsS --max-time 5 "$API_BASE_URL/metrics" | python - "$metric_name" <<'PY'
-import re, sys
+  local metrics_text
+  metrics_text="$(curl -fsS --max-time 5 "$API_BASE_URL/metrics")"
+  METRICS_TEXT="$metrics_text" python - "$metric_name" <<'PY'
+import os, re, sys
 name = sys.argv[1]
-text = sys.stdin.read()
+text = os.environ.get("METRICS_TEXT", "")
 pattern = re.compile(rf"^{re.escape(name)}(?:\\{{[^}}]*\\}})?\\s+([0-9eE+\\-.]+)\\s*$", re.M)
 m = pattern.search(text)
 if not m:
@@ -105,11 +109,13 @@ metric_counter_sum_by_route_and_status() {
   local metric_name="$1"
   local route="$2"
   local status="$3"
-  curl -fsS --max-time 5 "$API_BASE_URL/metrics" | python - "$metric_name" "$route" "$status" <<'PY'
-import sys
+  local metrics_text
+  metrics_text="$(curl -fsS --max-time 5 "$API_BASE_URL/metrics")"
+  METRICS_TEXT="$metrics_text" python - "$metric_name" "$route" "$status" <<'PY'
+import os, sys
 name, route, status = sys.argv[1], sys.argv[2], sys.argv[3]
 total = 0.0
-for line in sys.stdin.read().splitlines():
+for line in os.environ.get("METRICS_TEXT", "").splitlines():
     if not line.startswith(name + "{"):
         continue
     if f'route="{route}"' not in line:

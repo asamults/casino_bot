@@ -15,7 +15,7 @@
 # Remote BACKUP_DEST (user@host:path) is not supported here: copy succeeds but restore
 # needs a local path; use the split Makefile targets or pull the artifact first.
 
-set -euo pipefail
+set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"

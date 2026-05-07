@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
 
@@ -14,9 +14,9 @@ read -r s0 rid0 < <(http_status_and_request_id "$API_BASE_URL/health")
 read -r s1 rid1 < <(http_status_and_request_id "$API_BASE_URL/ready")
 [[ "$s1" == "200" ]] || fail "/ready expected 200, got $s1 (request_id=$rid1)"
 
-curl -fsS --max-time 5 "$API_BASE_URL/metrics" | python - <<'PY'
-import sys
-txt = sys.stdin.read()
+METRICS_TEXT="$(curl -fsS --max-time 5 "$API_BASE_URL/metrics")" python - <<'PY'
+import os
+txt = os.environ.get("METRICS_TEXT", "")
 required = [
   "casino_bot_http_requests_total",
   "casino_bot_http_request_duration_seconds",
