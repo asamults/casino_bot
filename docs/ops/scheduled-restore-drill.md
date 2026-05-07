@@ -24,7 +24,7 @@ no-WAL/PITR baseline.
    the schema is wrong, sha256 doesn't match the artifact, or required
    fields are missing.
 3. Run `restore_isolated_compose.sh` against the artifact. The restore
-   stack is created under `casino_bot_restore_<UTC>` so it cannot
+   stack is created under `restore_<UTC>` so it cannot
    collide with the running prod project; volumes and networks are
    project-namespaced.
 4. Write a structured JSON report to
@@ -38,7 +38,7 @@ no-WAL/PITR baseline.
      "backup_dir": "...",
      "backup_file": "...",
      "manifest_verified": true,
-     "isolated_project": "casino_bot_restore_20260507T160000Z",
+    "isolated_project": "restore_20260507T160000Z",
      "started_at_utc": "2026-05-07T16:00:00Z",
      "ended_at_utc":   "2026-05-07T16:01:30Z",
      "duration_seconds": 90,

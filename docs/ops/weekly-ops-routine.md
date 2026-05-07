@@ -9,6 +9,8 @@ morning UTC, before standup).
 
 | Task                          | Cadence | Tool / runbook                                              | Pass criterion                           |
 | ----------------------------- | ------- | ----------------------------------------------------------- | ---------------------------------------- |
+| Backup + encrypt              | Daily   | `scripts/ops/pg_backup_encrypt.sh`                           | New `backups/*.dump.age` + sidecars; manifest PASS |
+| Off-host copy (backup)        | Daily   | `scripts/ops/offhost_copy.sh` / `docs/ops/offhost-backup-runbook.md` | `sha256sum -c` PASS at DEST              |
 | Restore-verification drill    | Daily*  | `scripts/ops/scheduled_restore_drill.sh` (cron)             | Latest report `result == "PASS"`         |
 | Drill loop confidence check   | Weekly  | `make restore-drill-loop-validate`                          | Exits 0; "PASS: loop validation"         |
 | Evidence retention apply      | Weekly  | `make evidence-retention-apply`                             | Exits 0; archived FAIL reports preserved |
@@ -81,6 +83,14 @@ make restore-drill-loop-validate        # ITERATIONS=5 KEEP_LAST=3 by default
 make evidence-retention-dry-run         # review what will be archived/deleted
 make evidence-retention-apply           # apply
 
+# Daily (backup host):
+./scripts/ops/pg_backup_encrypt.sh
+
+# Daily (backup host) off-host copy:
+LATEST=$(ls -1t backups/*.dump.age backups/*.dump.gpg | head -n1)
+BACKUP_FILE="$LATEST" BACKUP_DEST=<local dir | user@host:/path/> \
+  ./scripts/ops/offhost_copy.sh
+
 # Spot-check the latest backup manifest:
 LATEST=$(ls -1t backups/*.dump.age backups/*.dump.gpg | head -n1)
 make verify-backup-manifest MANIFEST="$LATEST"
@@ -97,6 +107,27 @@ make prod-preflight \
   METRICS_BASIC_AUTH=user:pass \
   INSECURE_TLS=true
 ```
+
+### Cron / systemd examples (operators)
+
+Cron (daily restore drill at 04:30 UTC; weekly retention apply on Mondays):
+
+```bash
+# /etc/cron.d/casino_bot_ops (example)
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Daily restore-verification drill (requires decrypt key on host)
+30 4 * * * casino_bot cd /opt/casino_bot && ./scripts/ops/scheduled_restore_drill.sh >> /var/log/casino_bot/restore_drill.log 2>&1
+
+# Weekly evidence retention apply (safe: non-PASS is archived, PASS is trimmed)
+15 5 * * 1 casino_bot cd /opt/casino_bot && APPLY=true ./scripts/ops/evidence_retention.sh >> /var/log/casino_bot/evidence_retention.log 2>&1
+```
+
+systemd timer (optional; gives journald logs and better failure visibility):
+
+- Use `scripts/ops/scheduled_restore_drill.sh` as the `ExecStart=...`
+- Keep secrets out of the unit file; pass only file paths (e.g. `AGE_IDENTITY_FILE=/etc/casino_bot/age-identity.txt`)
 
 ### Reviewing a week of evidence
 

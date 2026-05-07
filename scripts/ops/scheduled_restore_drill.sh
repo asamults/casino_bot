@@ -6,7 +6,7 @@
 #   1) Finds the newest *.dump.age / *.dump.gpg under BACKUP_DIR.
 #   2) Verifies its manifest with verify_backup_manifest.py (schema + sha256).
 #   3) Runs scripts/ops/restore_isolated_compose.sh against an isolated
-#      Compose project (project name: casino_bot_restore_<UTC>).
+#      Compose project (project name: restore_<UTC>).
 #   4) Writes a structured JSON report to:
 #         artifacts/reports/restore-drills/<UTC>.json
 #      with status PASS or FAIL, durations, the backup file used, and the
@@ -164,7 +164,8 @@ fi
 restore_seconds=$(( $(date +%s) - r_start ))
 
 # Best-effort: extract the isolated project name from the restore script's stdout.
-isolated_project="$(grep -oE 'casino_bot_restore_[0-9TZ]+' "$RESTORE_LOG" | tail -n1 || true)"
+# M6W3 standard: restore_<UTC timestamp>.
+isolated_project="$(grep -oE 'restore_[0-9TZ]+' "$RESTORE_LOG" | tail -n1 || true)"
 
 if [[ "$status" != "PASS" ]]; then
   exit 3
