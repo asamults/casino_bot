@@ -85,6 +85,10 @@ jobs:
         run: |
           REQUIRE_SHELLCHECK=1 ./scripts/lint_shell.sh
 
+      - name: Ops contract smoke (M6W1)
+        run: |
+          ./scripts/ops/ops_contract_smoke.sh
+
       - name: Ruff
         run: |
           ruff check .

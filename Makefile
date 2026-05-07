@@ -136,6 +136,17 @@ evidence-retention-dry-run:
 evidence-retention-apply:
 	APPLY=true ./scripts/ops/evidence_retention.sh
 
+# Ops contract smoke (M6W1) — no-Docker regression gate that asserts
+# verify_backup_manifest / scheduled_restore_drill / evidence_retention /
+# backup_retention all behave per contract on synthetic fixtures.
+ops-contract-smoke:
+	./scripts/ops/ops_contract_smoke.sh
+
+# Long-run restore-drill loop validation (M6W1) — N iterations + retention
+# on a per-invocation tempdir; prints PASS/FAIL summary.
+restore-drill-loop-validate:
+	./scripts/ops/restore_drill_loop_validate.sh
+
 staging-up:
 	docker compose --env-file .env.staging -f docker-compose.staging.yml up -d --build
 

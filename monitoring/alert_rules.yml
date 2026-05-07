@@ -20,7 +20,7 @@ groups:
           severity: page
         annotations:
           summary: "HTTP 5xx rate > 1% over 10m"
-          runbook: "docs/runbooks/ci-gates-failure.md"
+          runbook: "docs/runbooks/http-5xx-spike.md"
 
       - alert: CasinoBotDeadLetterGrowth
         expr: sum(increase(casino_bot_webhook_dead_letter_total[15m])) > 0
