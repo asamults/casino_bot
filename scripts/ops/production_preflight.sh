@@ -11,6 +11,12 @@ if [[ "$INSECURE_TLS" == "true" ]]; then
   curl_common+=(-k)
 fi
 
+curl_status() {
+  # Print HTTP status code only (no headers/body).
+  # Note: avoid using curl_common here because it includes `-D -` (headers to stdout).
+  curl -sS -o /dev/null --max-time 10 -w "%{http_code}" "$@"
+}
+
 echo "== Production preflight =="
 echo "BASE_URL=$BASE_URL"
 echo "HOST_HEADER=$HOST_HEADER"
@@ -66,14 +72,14 @@ if [[ -z "${METRICS_BASIC_AUTH}" ]]; then
   echo "SKIP: METRICS_BASIC_AUTH not set; only checking that /metrics is not publicly accessible is not possible."
 else
   echo "GET /metrics (no auth) should be blocked (401/403)"
-  code=$(curl -sS -o /dev/null -w "%{http_code}" "${curl_common[@]}" -H "Host: ${HOST_HEADER}" "${BASE_URL}/metrics" || true)
+  code=$(curl_status "${curl_common[@]}" -D /dev/stderr -H "Host: ${HOST_HEADER}" "${BASE_URL}/metrics" || true)
   if [[ "$code" != "401" && "$code" != "403" ]]; then
     echo "FAIL: /metrics without auth expected 401/403, got ${code}"
     exit 2
   fi
 
   echo "GET /metrics (with basic auth) should be 200"
-  code=$(curl -sS -o /dev/null -w "%{http_code}" "${curl_common[@]}" -u "${METRICS_BASIC_AUTH}" -H "Host: ${HOST_HEADER}" "${BASE_URL}/metrics" || true)
+  code=$(curl_status "${curl_common[@]}" -D /dev/stderr -u "${METRICS_BASIC_AUTH}" -H "Host: ${HOST_HEADER}" "${BASE_URL}/metrics" || true)
   if [[ "$code" != "200" ]]; then
     echo "FAIL: /metrics with auth expected 200, got ${code}"
     exit 2
