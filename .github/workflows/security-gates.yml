@@ -89,6 +89,10 @@ jobs:
         run: |
           ./scripts/ops/ops_contract_smoke.sh
 
+      - name: Secrets hygiene (M6W2)
+        run: |
+          ./scripts/ops/secrets_hygiene_check.sh
+
       - name: Ruff
         run: |
           ruff check .

@@ -216,7 +216,85 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 4) backup_retention.sh — dry-run on empty + invalid APPLY
+# 4a) secrets_hygiene_check.sh — runnable; clean on a synthetic empty tree;
+#     fails on a synthetic forbidden tree (M6W2).
+# ---------------------------------------------------------------------------
+note "secrets_hygiene_check.sh (M6W2)"
+HYG_CLEAN="$WORK_DIR/hyg_clean"
+mkdir -p "$HYG_CLEAN/src"
+echo "ok" > "$HYG_CLEAN/src/main.py"
+if ROOT="$HYG_CLEAN" ./scripts/ops/secrets_hygiene_check.sh > "$WORK_DIR/hyg_clean.out" 2>&1; then
+  ok "clean tree: PASS"
+else
+  bad "clean tree unexpectedly failed"
+  cat "$WORK_DIR/hyg_clean.out" >&2
+fi
+
+HYG_DIRTY="$WORK_DIR/hyg_dirty"
+mkdir -p "$HYG_DIRTY"
+touch "$HYG_DIRTY/.env.prod" "$HYG_DIRTY/db.dump" "$HYG_DIRTY/server.htpasswd"
+set +e
+ROOT="$HYG_DIRTY" ./scripts/ops/secrets_hygiene_check.sh > "$WORK_DIR/hyg_dirty.out" 2>&1
+hyg_rc=$?
+set -e
+if [[ "$hyg_rc" == "3" ]]; then
+  ok "dirty tree: exit 3"
+else
+  bad "dirty tree expected exit 3, got $hyg_rc"
+fi
+if grep -q '\.env\.prod' "$WORK_DIR/hyg_dirty.out" \
+   && grep -q '\.dump' "$WORK_DIR/hyg_dirty.out" \
+   && grep -q '\.htpasswd' "$WORK_DIR/hyg_dirty.out"; then
+  ok "dirty tree: all three forbidden paths reported"
+else
+  bad "dirty tree: violation list missing entries"
+  cat "$WORK_DIR/hyg_dirty.out" >&2
+fi
+
+# ---------------------------------------------------------------------------
+# 4b) htpasswd_gen.sh — runnable; produces a hashed entry; rejects short pwd
+# ---------------------------------------------------------------------------
+note "htpasswd_gen.sh (M6W2)"
+HTP_DIR="$WORK_DIR/htp"
+mkdir -p "$HTP_DIR"
+HTP_PASS='ContractSmokePassword!1'
+if USERNAME=metrics PASSWORD="$HTP_PASS" OUTPUT_FILE="$HTP_DIR/.htpasswd" \
+    ./scripts/ops/htpasswd_gen.sh > "$WORK_DIR/htp.out" 2>&1; then
+  ok "generates an entry"
+else
+  bad "htpasswd_gen failed"
+  cat "$WORK_DIR/htp.out" >&2
+fi
+if grep -q "^metrics:" "$HTP_DIR/.htpasswd"; then
+  ok "entry starts with metrics:"
+else
+  bad "no metrics: line in output"
+fi
+if grep -qF "$HTP_PASS" "$HTP_DIR/.htpasswd"; then
+  bad "plaintext password leaked into output"
+else
+  ok "plaintext password NOT in output"
+fi
+mode=$(stat -c '%a' "$HTP_DIR/.htpasswd" 2>/dev/null || stat -f '%Lp' "$HTP_DIR/.htpasswd")
+if [[ "$mode" == "600" ]]; then
+  ok "output mode is 0600"
+else
+  bad "expected mode 600, got $mode"
+fi
+
+set +e
+USERNAME=metrics PASSWORD='short' OUTPUT_FILE="$HTP_DIR/.htpasswd_short" \
+  ./scripts/ops/htpasswd_gen.sh > "$WORK_DIR/htp_short.out" 2>&1
+htp_rc=$?
+set -e
+if [[ "$htp_rc" == "2" ]]; then
+  ok "rejects short password (rc=2)"
+else
+  bad "short password expected rc=2, got $htp_rc"
+fi
+
+# ---------------------------------------------------------------------------
+# 5) backup_retention.sh — dry-run on empty + invalid APPLY
 # ---------------------------------------------------------------------------
 note "backup_retention.sh"
 BR_DIR="$WORK_DIR/backups"

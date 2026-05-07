@@ -147,6 +147,27 @@ ops-contract-smoke:
 restore-drill-loop-validate:
 	./scripts/ops/restore_drill_loop_validate.sh
 
+# Secrets hygiene gate (M6W2) — fails closed if the working tree
+# contains forbidden paths (encrypted dumps, .env.prod, htpasswd, TLS
+# keys, age identities, etc.). See docs/ops/secrets-hygiene.md.
+secrets-hygiene-check:
+	./scripts/ops/secrets_hygiene_check.sh
+
+# Reverse-proxy htpasswd generator (M6W2) — turnkey for ops.
+# Usage:
+#   make htpasswd USERNAME=metrics OUTPUT_FILE=./ops/reverse-proxy/.htpasswd
+htpasswd:
+	@USERNAME="$${USERNAME:-metrics}" \
+	  OUTPUT_FILE="$${OUTPUT_FILE:-./.htpasswd}" \
+	  APPEND="$${APPEND:-false}" \
+	  ./scripts/ops/htpasswd_gen.sh
+
+# Reverse-proxy access policy verifier (M6W2) — runs against a live
+# proxy. Set BASE_URL / METRICS_BASIC_AUTH; ADMIN_ALLOWLIST_PROBE=true
+# when invoking from an allowlisted source IP.
+verify-proxy-policies:
+	./scripts/ops/verify_proxy_policies.sh
+
 staging-up:
 	docker compose --env-file .env.staging -f docker-compose.staging.yml up -d --build
 

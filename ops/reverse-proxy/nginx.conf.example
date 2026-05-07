@@ -1,3 +1,18 @@
+# casino_bot reverse-proxy example (M6W2: hardened admin surface).
+#
+# This is an *example* config aimed at an external proxy host fronting
+# the casino_bot api container. It demonstrates three operational
+# policies the team relies on:
+#
+#   1. /admin and /api/v1/admin are reachable only from an explicit
+#      IP allowlist (VPN, office). Everyone else gets 403.
+#   2. /metrics is reachable only with HTTP basic auth.
+#   3. /health and /ready are open (used by load balancers / probes).
+#
+# Adapt the `allow` lines and the upstream block to your environment
+# before deploying. See docs/ops/admin-access-policy.md for the full
+# operational story (mTLS, audit logging at the proxy, etc.).
+
 events {}
 
 http {
@@ -5,10 +20,36 @@ http {
     server api:8000;
   }
 
+  # --- Named blocks reused by location directives below ---------------------
+
+  # Admin allowlist. Replace the placeholders with real ranges.
+  # The default (empty allowlist) MUST be a deny-all; that's the safe
+  # posture if an operator forgets to populate the allowlist.
+  geo $admin_allowed {
+    default 0;
+
+    # Examples — replace with real values in your deployment.
+    # 10.0.0.0/8        1;   # corporate VPN
+    # 192.0.2.0/24      1;   # office NAT
+    # 198.51.100.42/32  1;   # bastion host
+  }
+
   server {
     listen 8080;
 
-    # App API (no auth here; enforce separately if needed)
+    # --- Open endpoints (probes, app traffic) ------------------------------
+    # /health and /ready are used by load balancers and Compose
+    # healthchecks; they MUST stay reachable without auth.
+    location = /health {
+      proxy_set_header Host $host;
+      proxy_pass http://casino_bot_api/health;
+    }
+    location = /ready {
+      proxy_set_header Host $host;
+      proxy_pass http://casino_bot_api/ready;
+    }
+
+    # Default app traffic. Public; the app enforces its own auth.
     location / {
       proxy_set_header Host $host;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -16,9 +57,32 @@ http {
       proxy_pass http://casino_bot_api;
     }
 
-    # Metrics protected by basic auth (example)
+    # --- Admin surface (IP allowlist) --------------------------------------
+    # Both legacy /admin/* and /api/v1/admin/* are gated at the proxy.
+    # The app still enforces its own JWT-based auth on top of this; the
+    # allowlist is *defence-in-depth* against credential leaks and
+    # internet-exposed brute force.
+    location /admin {
+      if ($admin_allowed = 0) { return 403; }
+      proxy_set_header Host $host;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_pass http://casino_bot_api;
+    }
+    location /api/v1/admin {
+      if ($admin_allowed = 0) { return 403; }
+      proxy_set_header Host $host;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_pass http://casino_bot_api;
+    }
+
+    # --- Metrics (basic auth) ---------------------------------------------
+    # Generate the htpasswd file out-of-band; see scripts/ops/htpasswd_gen.sh.
+    # The location is exact-match to avoid accidentally protecting
+    # sub-paths the app might add in the future.
     location = /metrics {
-      auth_basic "metrics";
+      auth_basic "casino_bot metrics";
       auth_basic_user_file /etc/nginx/.htpasswd;
 
       proxy_set_header Host $host;
@@ -26,4 +90,3 @@ http {
     }
   }
 }
-
