@@ -36,6 +36,16 @@ soak-prod:
 prod-preflight:
 	./scripts/ops/production_preflight.sh
 
+# Backup/restore rehearsal (M5W1)
+pg-backup-compose:
+	./scripts/ops/pg_dump_compose.sh
+
+pg-restore-compose:
+	./scripts/ops/pg_restore_compose.sh
+
+pg-verify-compose:
+	./scripts/ops/pg_verify_compose.sh
+
 staging-up:
 	docker compose --env-file .env.staging -f docker-compose.staging.yml up -d --build
 

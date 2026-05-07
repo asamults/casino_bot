@@ -35,3 +35,6 @@ venv/
 # External staging artifacts (never commit secrets/certs)
 ops/external-staging/nginx/.htpasswd
 ops/external-staging/nginx/tls/
+
+# Backup artifacts (never commit dumps)
+backups/
