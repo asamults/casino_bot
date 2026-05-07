@@ -9,6 +9,8 @@ import sys
 import time
 import urllib.error
 import urllib.request
+import ssl
+import base64
 from dataclasses import dataclass
 from typing import Any
 
@@ -39,15 +41,29 @@ def _percentile(values: list[float], p: float) -> float:
 
 
 def _fetch(
-    url: str, *, host_header: str | None, timeout_s: float
+    url: str,
+    *,
+    host_header: str | None,
+    timeout_s: float,
+    auth_header: str | None,
+    insecure_tls: bool,
 ) -> tuple[int, float, str]:
     headers = {}
     if host_header:
         headers["Host"] = host_header
+    if auth_header:
+        headers["Authorization"] = auth_header
     req = urllib.request.Request(url, headers=headers)
     start = time.perf_counter()
+    ctx = None
+    if url.lower().startswith("https://"):
+        ctx = (
+            ssl._create_unverified_context()
+            if insecure_tls
+            else ssl.create_default_context()
+        )
     try:
-        with urllib.request.urlopen(req, timeout=timeout_s) as r:
+        with urllib.request.urlopen(req, timeout=timeout_s, context=ctx) as r:
             body = r.read(1024 * 256).decode("utf-8", errors="replace")
             status = int(getattr(r, "status", 0) or 0)
     except urllib.error.HTTPError as e:
@@ -104,6 +120,17 @@ def run(argv: list[str] | None = None) -> int:
     )
     p.add_argument("--host-header", default=os.environ.get("SOAK_HOST_HEADER", ""))
     p.add_argument(
+        "--insecure-tls",
+        action="store_true",
+        default=os.environ.get("SOAK_INSECURE_TLS", "").lower() in {"1", "true", "yes"},
+        help="Disable TLS verification (use for self-signed staging only).",
+    )
+    p.add_argument(
+        "--metrics-basic-auth",
+        default=os.environ.get("SOAK_METRICS_BASIC_AUTH", ""),
+        help="Basic auth credentials for /metrics only, in 'user:pass' form.",
+    )
+    p.add_argument(
         "--duration-seconds",
         type=int,
         default=int(os.environ.get("SOAK_DURATION_SECONDS", "300")),
@@ -146,6 +173,13 @@ def run(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     host_header = args.host_header.strip() or None
+    insecure_tls = bool(args.insecure_tls)
+
+    metrics_auth = str(args.metrics_basic_auth).strip()
+    metrics_auth_header = None
+    if metrics_auth:
+        b = base64.b64encode(metrics_auth.encode("utf-8")).decode("ascii")
+        metrics_auth_header = f"Basic {b}"
     paths = [x.strip() for x in str(args.paths).split(",") if x.strip()]
     if not paths:
         print("FAIL: no paths provided", file=sys.stderr)
@@ -164,6 +198,8 @@ def run(argv: list[str] | None = None) -> int:
             f"{args.base_url}/metrics",
             host_header=host_header,
             timeout_s=args.timeout_seconds,
+            auth_header=metrics_auth_header,
+            insecure_tls=insecure_tls,
         )
         if st == 200:
             start_metrics_text = body
@@ -173,8 +209,13 @@ def run(argv: list[str] | None = None) -> int:
     while time.monotonic() < end_at:
         for path in paths:
             url = f"{args.base_url}{path}"
+            auth_header = metrics_auth_header if path == "/metrics" else None
             st, ms, body = _fetch(
-                url, host_header=host_header, timeout_s=args.timeout_seconds
+                url,
+                host_header=host_header,
+                timeout_s=args.timeout_seconds,
+                auth_header=auth_header,
+                insecure_tls=insecure_tls,
             )
             samples.append(Sample(path=path, status=st, latency_ms=ms))
             status_counts[path][st] = status_counts[path].get(st, 0) + 1
@@ -195,6 +236,8 @@ def run(argv: list[str] | None = None) -> int:
         f"{args.base_url}/metrics",
         host_header=host_header,
         timeout_s=args.timeout_seconds,
+        auth_header=metrics_auth_header,
+        insecure_tls=insecure_tls,
     )
     if st == 200:
         end_metrics_text = body

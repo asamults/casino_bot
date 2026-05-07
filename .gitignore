@@ -10,6 +10,8 @@ __pycache__/
 
 # Virtual environment
 .env
+.env.prod
+.env.staging
 .venv/
 venv/
 
@@ -29,3 +31,7 @@ venv/
 
 # Uvicorn / log files
 *.log
+
+# External staging artifacts (never commit secrets/certs)
+ops/external-staging/nginx/.htpasswd
+ops/external-staging/nginx/tls/

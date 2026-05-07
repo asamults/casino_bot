@@ -32,6 +32,12 @@ drill-webhook-dead-letter:
 soak-prod:
 	./scripts/soak/run_soak_prod_compose.sh
 
+staging-up:
+	docker compose --env-file .env.staging -f docker-compose.staging.yml up -d --build
+
+staging-down:
+	docker compose --env-file .env.staging -f docker-compose.staging.yml down
+
 # Build Docker image
 build:
 	docker build -t $(IMAGE_NAME) .

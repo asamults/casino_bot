@@ -44,6 +44,7 @@ docker exec casino_bot-api bash -lc \
    SOAK_HOST_HEADER='$HOST_HEADER' \
    SOAK_DURATION_SECONDS='$DURATION_SECONDS' \
    SOAK_INTERVAL_SECONDS='$INTERVAL_SECONDS' \
+   SOAK_METRICS_BASIC_AUTH='${METRICS_BASIC_AUTH:-}' \
    python scripts/soak/soak_http.py --report-json /tmp/soak_report.json"
 
 echo "Report JSON (from container):"
