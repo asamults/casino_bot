@@ -112,6 +112,30 @@ backup-retention-dry-run:
 backup-retention-apply:
 	APPLY=true ./scripts/ops/backup_retention.sh
 
+# Backup manifest verification (M5W4) — schema + sha256 + provenance.
+# Usage:
+#   make verify-backup-manifest MANIFEST=./backups/<file>.dump.age
+#   make verify-backup-manifest MANIFEST=./backups/<file>.dump.age.meta.json \
+#        REQUIRED_FIELDS=git_sha,alembic_revision
+verify-backup-manifest:
+	@if [ -z "$(MANIFEST)" ]; then echo "FAIL: MANIFEST not set"; exit 2; fi
+	@flags=""; \
+	  if [ -n "$(REQUIRED_FIELDS)" ]; then flags="--require-fields $(REQUIRED_FIELDS)"; fi; \
+	  python3 scripts/ops/verify_backup_manifest.py $$flags $(MANIFEST)
+
+# Scheduled restore-verification drill (M5W4) — produces a JSON report
+# under artifacts/reports/restore-drills/. Suitable for cron.
+scheduled-restore-drill:
+	./scripts/ops/scheduled_restore_drill.sh
+
+# Operational evidence retention (M5W4) — keep last N PASS reports;
+# move FAIL reports to archive/ on first apply pass.
+evidence-retention-dry-run:
+	./scripts/ops/evidence_retention.sh
+
+evidence-retention-apply:
+	APPLY=true ./scripts/ops/evidence_retention.sh
+
 staging-up:
 	docker compose --env-file .env.staging -f docker-compose.staging.yml up -d --build
 

@@ -51,3 +51,9 @@ ops/backup/*.identity
 ops/backup/*.passphrase
 *.age.key
 *.gpg.passphrase
+
+# Operational evidence (M5W4): runtime artifacts produced by drills and
+# scheduled jobs. Reports and archived FAIL reports are intentionally
+# not version-controlled; their lifecycle is managed by
+# scripts/ops/evidence_retention.sh.
+artifacts/

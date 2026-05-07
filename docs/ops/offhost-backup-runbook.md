@@ -106,6 +106,13 @@ Expected outputs in `./backups/`:
 
 The plaintext `.dump` is removed by default (`KEEP_PLAINTEXT=true` to keep it).
 
+The `.meta.json` manifest follows **schema_version 2** (M5W4) and adds
+provenance fields (`encryption`, `git_sha`, `git_describe`,
+`postgres_version`, `alembic_revision`) on top of the v1 fields. Use
+`scripts/ops/verify_backup_manifest.py` (or `make verify-backup-manifest
+MANIFEST=…`) to validate the schema and recompute sha256 over the
+encrypted artifact. The verifier accepts both v1 and v2 manifests.
+
 ### Off-host copy
 
 Local mock destination (another directory on the same machine — useful for

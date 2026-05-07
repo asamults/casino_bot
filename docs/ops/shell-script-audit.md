@@ -32,6 +32,15 @@ command substitutions, which we now rely on for the plaintext-shred trap
 in `pg_backup_encrypt.sh` (see §3). The other flags (`-e`, `-u`,
 `pipefail`) were already in place repo-wide.
 
+> **M5W4 correction.** During the M5W3 sweep one file
+> (`scripts/ops/pg_backup_encrypt.sh`) was inadvertently left at
+> `set -euo pipefail`. The script's plaintext-shred trap continued to
+> work because the only error-prone commands sit at the top level (no
+> nested function or subshell where `-E` would be needed), so there was
+> no operational regression. The flag was nonetheless brought in line
+> in M5W4 alongside the manifest-v2 work; consistency matters as
+> future refactors may move logic into helper functions.
+
 **Decision: do NOT add `IFS=$'\n\t'` blanket-style.**
 
 Rationale: the recommendation only matters where unquoted external strings

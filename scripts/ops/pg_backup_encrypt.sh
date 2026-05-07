@@ -28,7 +28,7 @@
 #   2  bad input / missing tool / missing recipient
 #   3  encryption or checksum failure
 
-set -euo pipefail
+set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
@@ -132,17 +132,39 @@ SHA_PATH="${ENC_PATH}.sha256"
 echo "Checksum: $SHA_PATH"
 
 # --- 4) metadata ----------------------------------------------------------
+# Schema v2 (M5W4): adds provenance fields. Verifier accepts v1 and v2.
 META_PATH="${ENC_PATH}.meta.json"
 PLAIN_SIZE="$(stat -c '%s' "$DUMP_PATH" 2>/dev/null || stat -f '%z' "$DUMP_PATH")"
 ENC_SIZE="$(stat -c '%s' "$ENC_PATH" 2>/dev/null || stat -f '%z' "$ENC_PATH")"
 SHA_VALUE="$(awk '{print $1}' "$SHA_PATH")"
 TS_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
+# git_sha / git_describe — best-effort; backup hosts may not be a git checkout.
+GIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo '')"
+GIT_DESCRIBE="$(git describe --tags --dirty --always 2>/dev/null || echo '')"
+
+# postgres_version + alembic_revision — best-effort via the running compose
+# postgres service. We don't fail the backup if these can't be queried;
+# the verifier will report them as "unknown" in the manifest.
+PG_VERSION=""
+ALEMBIC_REVISION=""
+if docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps -q "$POSTGRES_SERVICE" >/dev/null 2>&1; then
+  PG_VERSION="$(docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec -T "$POSTGRES_SERVICE" \
+    psql -tAU "$(grep -E '^POSTGRES_USER=' "$ENV_FILE" | cut -d= -f2-)" \
+         -d "$(grep -E '^POSTGRES_DB=' "$ENV_FILE" | cut -d= -f2-)" \
+         -c 'SHOW server_version' 2>/dev/null | head -n1 | tr -d '[:space:]' || echo '')"
+  ALEMBIC_REVISION="$(docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec -T "$POSTGRES_SERVICE" \
+    psql -tAU "$(grep -E '^POSTGRES_USER=' "$ENV_FILE" | cut -d= -f2-)" \
+         -d "$(grep -E '^POSTGRES_DB=' "$ENV_FILE" | cut -d= -f2-)" \
+         -c 'SELECT version_num FROM alembic_version' 2>/dev/null | head -n1 | tr -d '[:space:]' || echo '')"
+fi
+
 cat > "$META_PATH" <<JSON
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "created_at_utc": "$TS_UTC",
   "tool": "$BACKUP_ENCRYPT_TOOL",
+  "encryption": "$BACKUP_ENCRYPT_TOOL",
   "recipient": "$RECIPIENT_DESC",
   "plaintext_basename": "$(basename "$DUMP_PATH")",
   "encrypted_basename": "$(basename "$ENC_PATH")",
@@ -151,7 +173,11 @@ cat > "$META_PATH" <<JSON
   "sha256": "$SHA_VALUE",
   "compose_file": "$COMPOSE_FILE",
   "env_file": "$ENV_FILE",
-  "postgres_service": "$POSTGRES_SERVICE"
+  "postgres_service": "$POSTGRES_SERVICE",
+  "git_sha": "$GIT_SHA",
+  "git_describe": "$GIT_DESCRIBE",
+  "postgres_version": "$PG_VERSION",
+  "alembic_revision": "$ALEMBIC_REVISION"
 }
 JSON
 echo "Metadata: $META_PATH"
