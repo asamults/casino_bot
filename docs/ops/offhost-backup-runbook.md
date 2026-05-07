@@ -19,8 +19,10 @@ often you take a backup; RTO is bounded by decrypt + restore + readiness.
 ### Components
 
 - `scripts/ops/pg_backup_encrypt.sh`   — pg_dump → encrypt → sha256 → meta.json
-- `scripts/ops/backup_offhost_copy.sh` — copy `.age`/`.gpg` + sidecars to DEST
+- `scripts/ops/offhost_copy.sh` — off-host copy + checksum verify (M6W3 entrypoint)
+- `scripts/ops/backup_offhost_copy.sh` — underlying copy implementation (audited)
 - `scripts/ops/restore_isolated_compose.sh` — decrypt → isolated stack → pg_restore → probes
+- `scripts/ops/restore_offhost_isolated.sh` — off-host restore wrapper (optional remote fetch) (M6W3 entrypoint)
 - `scripts/ops/rehearsal_offhost_full.sh` — one-shot local DEST: dump → encrypt → copy → restore → probes
 - `docker-compose.restore.yml` — restore stack (no fixed `container_name`,
   project-namespaced volumes/networks)
@@ -121,7 +123,7 @@ dry runs / CI):
 ```bash
 BACKUP_FILE=./backups/casino_bot_<UTC>.dump.age \
 BACKUP_DEST=/var/tmp/casino_bot_offhost/ \
-  ./scripts/ops/backup_offhost_copy.sh
+  ./scripts/ops/offhost_copy.sh
 ```
 
 Real off-host destination over SSH:
@@ -130,7 +132,7 @@ Real off-host destination over SSH:
 BACKUP_FILE=./backups/casino_bot_<UTC>.dump.age \
 BACKUP_DEST=backupuser@backup.example.com:/var/backups/casino_bot/ \
 SSH_OPTS="-i $HOME/.ssh/casino_bot_backup_id_ed25519" \
-  ./scripts/ops/backup_offhost_copy.sh
+  ./scripts/ops/offhost_copy.sh
 ```
 
 The script copies the encrypted blob plus its `.sha256` and `.meta.json`
@@ -143,11 +145,11 @@ verify exits non-zero.
 ### Restore in an isolated stack
 
 ```bash
-BACKUP_FILE=/var/tmp/casino_bot_offhost/casino_bot_<UTC>.dump.age \
+BACKUP_SRC=/var/tmp/casino_bot_offhost/casino_bot_<UTC>.dump.age \
 AGE_IDENTITY_FILE="$HOME/.config/casino_bot/age-identity.txt" \
 ENV_FILE=.env.restore \
 HOST_HEADER=api.example.com \
-  ./scripts/ops/restore_isolated_compose.sh
+  ./scripts/ops/restore_offhost_isolated.sh
 ```
 
 What the script does:
@@ -156,7 +158,7 @@ What the script does:
 2. Decrypts to a temp file in `$(mktemp -d)`; the temp dir is shredded
    on exit.
 3. Brings up an isolated compose stack:
-   - `COMPOSE_PROJECT_NAME=casino_bot_restore_<UTC timestamp>`
+   - `COMPOSE_PROJECT_NAME=restore_<UTC timestamp>`
    - `-f docker-compose.restore.yml`
    - container names auto-generated as `<project>-postgres-1`, `<project>-api-1`
    - volume `pgdata` is namespaced to the project (independent from prod)
@@ -175,6 +177,16 @@ PASS criteria:
 
 FAIL criteria: any of the above missing.
 
+Remote source convenience (fetch via scp, then restore locally):
+
+```bash
+BACKUP_SRC=backupuser@backup.example.com:/var/backups/casino_bot/casino_bot_<UTC>.dump.age \
+SSH_OPTS="-i $HOME/.ssh/casino_bot_backup_id_ed25519" \
+AGE_IDENTITY_FILE="$HOME/.config/casino_bot/age-identity.txt" \
+ENV_FILE=.env.restore \
+  ./scripts/ops/restore_offhost_isolated.sh
+```
+
 ### gpg variant (optional)
 
 ```bash
@@ -182,9 +194,9 @@ BACKUP_ENCRYPT_TOOL=gpg \
 GPG_RECIPIENT=ops@example.com \
   ./scripts/ops/pg_backup_encrypt.sh
 
-BACKUP_FILE=./backups/casino_bot_<UTC>.dump.gpg \
+BACKUP_SRC=./backups/casino_bot_<UTC>.dump.gpg \
 GPG_PASSPHRASE_FILE=/secure/path/passphrase.txt \
-  ./scripts/ops/restore_isolated_compose.sh
+  ./scripts/ops/restore_offhost_isolated.sh
 ```
 
 The passphrase file is gitignored by pattern (`*.gpg.passphrase`); store
@@ -215,7 +227,7 @@ it outside the repo for production use.
 If `KEEP_STACK=true` was set, clean up the isolated stack later:
 
 ```bash
-docker compose -p casino_bot_restore_<UTC> -f docker-compose.restore.yml down -v
+docker compose -p restore_<UTC> -f docker-compose.restore.yml down -v
 ```
 
 `down -v` removes the per-project `pgdata` volume, which is what we want

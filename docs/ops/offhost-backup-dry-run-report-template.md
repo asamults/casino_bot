@@ -76,14 +76,14 @@ Copy wall time (s): <n>
 Command:
 
 ```
-make restore-isolated BACKUP_FILE=<path-at-dest> AGE_IDENTITY_FILE=<path>
+BACKUP_SRC=<path-at-dest> AGE_IDENTITY_FILE=<path> ./scripts/ops/restore_offhost_isolated.sh
 ```
 
-Project name created: `casino_bot_restore_<UTC>`
+Project name created: `restore_<UTC>`
 Containers seen via `docker ps`:
 
-- `casino_bot_restore_<UTC>-postgres-1`
-- `casino_bot_restore_<UTC>-api-1`
+- `restore_<UTC>-postgres-1`
+- `restore_<UTC>-api-1`
 
 Confirmed isolation:
 
@@ -100,7 +100,7 @@ Restore wall time (s): <n>
 Command:
 
 ```
-make verify-restore-isolated API_CONTAINER=casino_bot_restore_<UTC>-api-1
+make verify-restore-isolated API_CONTAINER=restore_<UTC>-api-1
 ```
 
 - `/health`:  PASS / FAIL  (status: <n>)
