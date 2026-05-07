@@ -22,14 +22,18 @@ SCRIPT = REPO_ROOT / "scripts" / "ops" / "evidence_retention.sh"
 
 
 def _write_report(path: Path, *, result: str) -> None:
-    path.write_text(json.dumps({"result": result, "backup_file": "x"}), encoding="utf-8")
+    path.write_text(
+        json.dumps({"result": result, "backup_file": "x"}), encoding="utf-8"
+    )
     # Force deterministic mtimes so "newest KEEP_LAST" is predictable.
     # Use ascending integers as epoch seconds.
     epoch = int(path.stem.replace("t", "").replace("z", ""))  # e.g. "1", "2", "3"
     os.utime(path, (epoch, epoch))
 
 
-def _run(report_dir: Path, *, keep_last: int = 2, apply: bool = False) -> subprocess.CompletedProcess:
+def _run(
+    report_dir: Path, *, keep_last: int = 2, apply: bool = False
+) -> subprocess.CompletedProcess:
     env = os.environ.copy()
     env["REPORT_DIR"] = str(report_dir)
     env["KEEP_LAST"] = str(keep_last)
@@ -100,4 +104,3 @@ def test_plan_output_is_deterministic(report_dir: Path) -> None:
 
 def test_script_is_executable() -> None:
     assert os.access(SCRIPT, os.X_OK), f"{SCRIPT} must be executable"
-
