@@ -32,6 +32,10 @@ drill-webhook-dead-letter:
 soak-prod:
 	./scripts/soak/run_soak_prod_compose.sh
 
+# Production cutover readiness (dry-run)
+prod-preflight:
+	./scripts/ops/production_preflight.sh
+
 staging-up:
 	docker compose --env-file .env.staging -f docker-compose.staging.yml up -d --build
 
