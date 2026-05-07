@@ -1,0 +1,14 @@
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: casino_bot-nginx
+    restart: always
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./nginx.conf.example:/etc/nginx/nginx.conf:ro
+      # Create this file out-of-band via: `htpasswd -c .htpasswd metrics`
+      - ./.htpasswd:/etc/nginx/.htpasswd:ro
+    depends_on:
+      - api
+

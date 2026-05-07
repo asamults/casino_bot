@@ -6,6 +6,10 @@
 - inside a private network/VPC, or
 - through a reverse proxy with IP allowlist and/or auth.
 
+### Example reverse proxy setup
+
+See `ops/reverse-proxy/nginx.conf.example` and `ops/reverse-proxy/docker-compose.proxy.yml`.
+
 ### Nginx example (basic auth)
 
 ```nginx
