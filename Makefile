@@ -63,8 +63,8 @@ backup-offhost:
 restore-isolated:
 	@if [ -z "$(BACKUP_FILE)" ]; then echo "FAIL: BACKUP_FILE not set"; exit 2; fi
 	BACKUP_FILE=$(BACKUP_FILE) \
-	  AGE_IDENTITY_FILE="$(AGE_IDENTITY_FILE)" \
-	  GPG_PASSPHRASE_FILE="$(GPG_PASSPHRASE_FILE)" \
+	  AGE_IDENTITY_FILE="$${AGE_IDENTITY_FILE}" \
+	  GPG_PASSPHRASE_FILE="$${GPG_PASSPHRASE_FILE}" \
 	  ENV_FILE="$${ENV_FILE:-.env.restore.example}" \
 	  HOST_HEADER="$${HOST_HEADER:-api.example.com}" \
 	  KEEP_STACK="$${KEEP_STACK:-false}" \
@@ -89,7 +89,7 @@ verify-restore-isolated:
 rehearsal-offhost:
 	@if [ -z "$(BACKUP_DEST)" ]; then echo "FAIL: BACKUP_DEST not set (local directory)"; exit 2; fi
 	BACKUP_DEST=$(BACKUP_DEST) \
-	  AGE_IDENTITY_FILE="$(AGE_IDENTITY_FILE)" \
+	  AGE_IDENTITY_FILE="$${AGE_IDENTITY_FILE}" \
 	  ENV_FILE="$${ENV_FILE:-.env.prod.example}" \
 	  COMPOSE_FILE="$${COMPOSE_FILE:-docker-compose.prod.yml}" \
 	  RESTORE_ENV_FILE="$${RESTORE_ENV_FILE:-.env.restore.example}" \
