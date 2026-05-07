@@ -46,6 +46,57 @@ pg-restore-compose:
 pg-verify-compose:
 	./scripts/ops/pg_verify_compose.sh
 
+# Off-host encrypted backup + isolated restore (M5W2)
+# Usage:
+#   make backup-offhost BACKUP_DEST=/var/tmp/casino_bot_offhost/
+#   make backup-offhost BACKUP_DEST=user@host:/var/backups/casino_bot/ SSH_OPTS="-i ~/.ssh/id_ed25519"
+backup-offhost:
+	./scripts/ops/pg_backup_encrypt.sh
+	@latest=$$(ls -1t backups/*.dump.age backups/*.dump.gpg 2>/dev/null | head -n1); \
+	  if [ -z "$$latest" ]; then echo "FAIL: no encrypted backup found in backups/"; exit 2; fi; \
+	  if [ -z "$(BACKUP_DEST)" ]; then echo "FAIL: BACKUP_DEST not set"; exit 2; fi; \
+	  BACKUP_FILE=$$latest BACKUP_DEST=$(BACKUP_DEST) SSH_OPTS="$(SSH_OPTS)" ./scripts/ops/backup_offhost_copy.sh
+
+# Usage:
+#   make restore-isolated BACKUP_FILE=./backups/<file>.dump.age \
+#                         AGE_IDENTITY_FILE=$$HOME/.config/casino_bot/age-identity.txt
+restore-isolated:
+	@if [ -z "$(BACKUP_FILE)" ]; then echo "FAIL: BACKUP_FILE not set"; exit 2; fi
+	BACKUP_FILE=$(BACKUP_FILE) \
+	  AGE_IDENTITY_FILE="$(AGE_IDENTITY_FILE)" \
+	  GPG_PASSPHRASE_FILE="$(GPG_PASSPHRASE_FILE)" \
+	  ENV_FILE="$${ENV_FILE:-.env.restore.example}" \
+	  HOST_HEADER="$${HOST_HEADER:-api.example.com}" \
+	  KEEP_STACK="$${KEEP_STACK:-false}" \
+	  ./scripts/ops/restore_isolated_compose.sh
+
+# Re-run only the probe verification against an existing isolated api container.
+# Usage:
+#   make verify-restore-isolated API_CONTAINER=casino_bot_restore_<UTC>-api-1
+verify-restore-isolated:
+	@if [ -z "$(API_CONTAINER)" ]; then echo "FAIL: API_CONTAINER not set"; exit 2; fi
+	API_CONTAINER=$(API_CONTAINER) \
+	  HOST_HEADER="$${HOST_HEADER:-api.example.com}" \
+	  COMPOSE_FILE=docker-compose.restore.yml \
+	  ENV_FILE="$${ENV_FILE:-.env.restore.example}" \
+	  ./scripts/ops/pg_verify_compose.sh
+
+# One command: backup → encrypt → copy (local DEST) → isolated restore → probes PASS/FAIL.
+# Requires: age, docker, ops/backup/age-recipients.txt, identity matching those recipients.
+# Usage:
+#   make rehearsal-offhost BACKUP_DEST=/var/tmp/casino_bot_offhost/ \
+#        AGE_IDENTITY_FILE=$$HOME/.config/casino_bot/age-identity.txt
+rehearsal-offhost:
+	@if [ -z "$(BACKUP_DEST)" ]; then echo "FAIL: BACKUP_DEST not set (local directory)"; exit 2; fi
+	BACKUP_DEST=$(BACKUP_DEST) \
+	  AGE_IDENTITY_FILE="$(AGE_IDENTITY_FILE)" \
+	  ENV_FILE="$${ENV_FILE:-.env.prod.example}" \
+	  COMPOSE_FILE="$${COMPOSE_FILE:-docker-compose.prod.yml}" \
+	  RESTORE_ENV_FILE="$${RESTORE_ENV_FILE:-.env.restore.example}" \
+	  HOST_HEADER="$${HOST_HEADER:-api.example.com}" \
+	  KEEP_STACK="$${KEEP_STACK:-false}" \
+	  ./scripts/ops/rehearsal_offhost_full.sh
+
 staging-up:
 	docker compose --env-file .env.staging -f docker-compose.staging.yml up -d --build
 

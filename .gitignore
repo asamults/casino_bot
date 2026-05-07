@@ -36,5 +36,18 @@ venv/
 ops/external-staging/nginx/.htpasswd
 ops/external-staging/nginx/tls/
 
-# Backup artifacts (never commit dumps)
+# Backup artifacts (never commit dumps, encrypted blobs, or sidecars)
 backups/
+
+# Off-host backup destination credentials / config (never commit)
+.env.offhost
+.env.restore
+
+# Encryption keys: NEVER commit private identities/passphrases.
+# Public recipients (age-recipients.txt) are safe to commit, so they are
+# *not* ignored. Identity files / passphrases are.
+ops/backup/age-identity*
+ops/backup/*.identity
+ops/backup/*.passphrase
+*.age.key
+*.gpg.passphrase

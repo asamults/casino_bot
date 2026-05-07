@@ -1,0 +1,16 @@
+# Example age recipient (public) keys file for backup encryption.
+#
+# Generate a keypair on a workstation that will *consume* the backups:
+#   age-keygen -o ~/.config/casino_bot/age-identity.txt
+#
+# The "public key:" line printed by age-keygen (starts with "age1...")
+# goes here. One recipient per line. Multiple recipients = backup can be
+# decrypted by any of them (use this for ops + DR roles).
+#
+# Copy this file to ops/backup/age-recipients.txt and replace the line
+# below with your real public keys. The file ops/backup/age-recipients.txt
+# is the one read by scripts/ops/pg_backup_encrypt.sh.
+#
+# Public keys are SAFE to commit. Identity files (private keys) are NOT.
+
+age1examplepublickeyplaceholderdoNOTuseinrealitymustbereplaced0000

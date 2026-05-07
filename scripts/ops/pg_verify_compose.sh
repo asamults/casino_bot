@@ -7,12 +7,14 @@ cd "$ROOT_DIR"
 ENV_FILE="${ENV_FILE:-.env.prod.example}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
 HOST_HEADER="${HOST_HEADER:-api.example.com}"
+API_CONTAINER="${API_CONTAINER:-casino_bot-api}"
 
 echo "== verify restore (compose) =="
 echo "Host header: $HOST_HEADER"
+echo "API container: $API_CONTAINER"
 
 echo "-- waiting for /ready=200 inside api container --"
-docker exec casino_bot-api bash -lc "python - <<'PY'
+docker exec "$API_CONTAINER" bash -lc "python - <<'PY'
 import os, time, urllib.request
 host=os.environ.get('HOST_HEADER','api.example.com')
 deadline=time.time()+90
@@ -32,7 +34,7 @@ while True:
 PY" HOST_HEADER="$HOST_HEADER"
 
 echo "-- basic probe checks --"
-docker exec casino_bot-api bash -lc "python - <<'PY'
+docker exec "$API_CONTAINER" bash -lc "python - <<'PY'
 import os, urllib.request
 host=os.environ.get('HOST_HEADER','api.example.com')
 for path in ('/health','/ready','/metrics'):
