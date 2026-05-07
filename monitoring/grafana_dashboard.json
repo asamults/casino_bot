@@ -23,6 +23,19 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "PROMETHEUS" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "id": 6,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(casino_bot_http_request_duration_seconds_bucket[5m])) by (le, route))",
+          "legendFormat": "{{route}}"
+        }
+      ],
+      "title": "HTTP p99 latency by route",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "id": 2,
       "targets": [

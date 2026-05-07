@@ -14,12 +14,12 @@ groups:
         expr: |
           sum(rate(casino_bot_http_requests_total{status=~"5.."}[5m]))
           /
-          sum(rate(casino_bot_http_requests_total[5m])) > 0.05
+          sum(rate(casino_bot_http_requests_total[5m])) > 0.01
         for: 10m
         labels:
           severity: page
         annotations:
-          summary: "HTTP 5xx rate > 5% over 5m"
+          summary: "HTTP 5xx rate > 1% over 10m"
           runbook: "docs/runbooks/ci-gates-failure.md"
 
       - alert: CasinoBotDeadLetterGrowth

@@ -28,6 +28,10 @@ drill-5xx-spike:
 drill-webhook-dead-letter:
 	./scripts/drill/drill_webhook_dead_letter.sh
 
+# Soak (M4W2)
+soak-prod:
+	./scripts/soak/run_soak_prod_compose.sh
+
 # Build Docker image
 build:
 	docker build -t $(IMAGE_NAME) .
