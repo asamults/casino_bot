@@ -55,15 +55,26 @@ echo "Working dir:   $OUT_DIR"
 echo
 
 # --- 1) seed synthetic "prior weeks" PASS reports --------------------------
-# We mtime them backwards in 1-day increments so retention can rank them.
+# Each prior report is dated `i` days before "now" (UTC), where "now" is
+# offset back another `PRIOR_PASS` days so the loop's freshly-generated
+# reports always sort newer than the seeded ones. Both the filename
+# (YYYYMMDDTHHMMSSZ) and the JSON timestamp fields (ISO-8601 strict)
+# are derived from the same epoch so filename, content, and mtime stay
+# consistent.
+NOW_EPOCH="$(date +%s)"
 for i in $(seq 1 "$PRIOR_PASS"); do
-  fname=$(printf '20260%03dT120000Z.json' "$i")
-  cat > "$REPORT_DIR/$fname" <<JSON
-{"schema_version":1,"result":"PASS","reason":"ok","backup_dir":"/synthetic","backup_file":"/synthetic/x.dump.age","manifest_verified":true,"isolated_project":"casino_bot_restore_synthetic_$i","started_at_utc":"2026-04-${i}T00:00:00Z","ended_at_utc":"2026-04-${i}T00:01:00Z","duration_seconds":60,"verify_seconds":1,"restore_seconds":59,"host_header":"api.example.com","compose_file":"docker-compose.restore.yml","env_file":".env.restore.example"}
-JSON
-  # Push mtime so the seeded reports look older than the loop reports.
   age_seconds=$(( i * 86400 ))
-  touch -d "@$(($(date +%s) - age_seconds))" "$REPORT_DIR/$fname"
+  ts_epoch=$(( NOW_EPOCH - age_seconds ))
+  fname_ts="$(date -u -d "@$ts_epoch" +%Y%m%dT%H%M%SZ)"
+  iso_start="$(date -u -d "@$ts_epoch" +%Y-%m-%dT%H:%M:%SZ)"
+  iso_end="$(date -u -d "@$((ts_epoch + 60))" +%Y-%m-%dT%H:%M:%SZ)"
+  fname="$fname_ts.json"
+  cat > "$REPORT_DIR/$fname" <<JSON
+{"schema_version":1,"result":"PASS","reason":"ok","backup_dir":"/synthetic","backup_file":"/synthetic/x.dump.age","manifest_verified":true,"isolated_project":"casino_bot_restore_synthetic_$i","started_at_utc":"$iso_start","ended_at_utc":"$iso_end","duration_seconds":60,"verify_seconds":1,"restore_seconds":59,"host_header":"api.example.com","compose_file":"docker-compose.restore.yml","env_file":".env.restore.example"}
+JSON
+  # Push mtime to match the synthetic timestamp so retention can rank
+  # these older than the loop reports.
+  touch -d "@$ts_epoch" "$REPORT_DIR/$fname"
 done
 
 # --- 2) loop the drill ----------------------------------------------------

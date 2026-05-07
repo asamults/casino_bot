@@ -72,7 +72,10 @@ PASS: loop validation
 ### Sample report shapes
 
 PASS report (synthesized prior-weeks fixture; same shape as a real
-drill PASS):
+drill PASS). Filename, JSON timestamps, and on-disk mtime are all
+derived from the same epoch (`now - i * 86400`), so a file named
+`20260504T182501Z.json` will always carry matching `started_at_utc`
+and a matching mtime.
 
 ```json
 {
@@ -83,8 +86,8 @@ drill PASS):
   "backup_file": "/synthetic/x.dump.age",
   "manifest_verified": true,
   "isolated_project": "casino_bot_restore_synthetic_3",
-  "started_at_utc": "2026-04-03T00:00:00Z",
-  "ended_at_utc":   "2026-04-03T00:01:00Z",
+  "started_at_utc": "2026-05-04T18:25:01Z",
+  "ended_at_utc":   "2026-05-04T18:26:01Z",
   "duration_seconds": 60,
   "verify_seconds": 1,
   "restore_seconds": 59,
