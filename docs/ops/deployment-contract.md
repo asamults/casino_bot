@@ -32,6 +32,7 @@ Production must set at least:
 - `CORS_ALLOW_ORIGINS` (explicit JSON list)
 - `ALLOWED_HOSTS` (no localhost/loopback)
 - `BILLING_ALLOWED_RETURN_HOSTS` (no localhost/loopback)
+- `HEALTHCHECK_HOST` in `docker-compose.prod.yml` (compose env injection; must equal the primary `Host`/`ALLOWED_HOSTS` hostname so `/ready` healthchecks pass `TrustedHostMiddleware`)
 
 Production must **not** enable drill flags:
 - `DRILL_FORCE_DB_NOT_READY`, `DRILL_FORCE_500_ON_PATH`, `DRILL_SUPERADMIN_TOKEN`

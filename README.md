@@ -31,6 +31,9 @@ All **repository artifacts** stay in **English**: README, inline comments, `Make
 - **Deployment contract**: `docs/ops/deployment-contract.md`
 - **Secrets policy**: `docs/ops/secrets-policy.md`
 - **Metrics access policy**: `docs/ops/metrics-access.md`
+- **Production cutover (M7W1)**: `docs/ops/production-cutover-checklist.md`,
+  rollback `docs/ops/production-rollback-plan.md`, observability bundle
+  `monitoring/docker-compose.observability.yml`
 
 ## Domain, compliance, and subscriptions
 

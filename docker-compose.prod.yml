@@ -27,6 +27,8 @@ services:
     environment:
       ENVIRONMENT: production
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Must match the Host header proxies send (TrustedHostMiddleware + /ready healthcheck).
+      HEALTHCHECK_HOST: ${HEALTHCHECK_HOST:?required}
       DATABASE_URL: ${DATABASE_URL:?required}
       SECRET_KEY: ${SECRET_KEY:?required}
       JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:?required}

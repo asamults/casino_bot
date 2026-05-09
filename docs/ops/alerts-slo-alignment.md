@@ -84,3 +84,24 @@ workbook), latency moves into a real alert at that point. Tracked as a
 PASS at M6W1. Three alerts, three SLOs, three runbooks. One stale
 runbook reference fixed. One deliberate gap (latency) explicitly
 documented.
+
+---
+
+### Appendix: M7W1 — post-production-traffic tuning notes
+
+Once production traffic flows, reconcile **noise vs. usefulness** within the
+constraints of `monitoring/alert_rules.yml`:
+
+- **`CasinoBotHTTP5xxSpike`**: the expression uses `[5m]` rates with **`for:
+  10m`** to tolerate short deploy churn; if pages fire only during rollout,
+  extend `for:` modestly **or** add a mute window at the notification layer —
+  prefer not to widen the underlying ratio silently.
+- **`CasinoBotDeadLetterGrowth`**: `severity: ticket` already avoids paging;
+  if webhooks emit isolated failures, correlate with retries before raising
+  severity.
+- **`CasinoBotReadyDown`**: `for: 2m` is deliberate to catch sustained DB outage;
+  false positives indicate proxy healthcheck/host header mis-configuration
+  rather than alerting sensitivity.
+
+Anything changed to thresholds/windows should edit **both** `monitoring/alert_rules.yml`
+and this document in the same PR.

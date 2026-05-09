@@ -1,0 +1,53 @@
+# Observability sidecar for production (M7W1).
+#
+# Prometheus scrapes the app by joining the *same* Docker network as
+# docker-compose.prod.yml (default project name `casino_bot` → network
+# `casino_bot_default`). Adjust `name:` if you use COMPOSE_PROJECT_NAME.
+#
+# Grafana binds to loopback only (3000) — reach it via SSH tunnel or
+# private admin path; do not expose raw :3000 to the public internet.
+#
+# Secrets: set on the host only, never in git:
+#   export GRAFANA_ADMIN_PASSWORD='...'
+#
+# Run (from repo root on the VPS):
+#   docker compose -f monitoring/docker-compose.observability.yml up -d
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+    networks:
+      - casino_bot_default
+      - obs_internal
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD on the host}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana_dashboard.json:/var/lib/grafana/dashboards/casino_bot_baseline.json:ro
+    depends_on:
+      - prometheus
+    networks:
+      - obs_internal
+
+networks:
+  casino_bot_default:
+    external: true
+    name: casino_bot_default
+  obs_internal:
+    driver: bridge
