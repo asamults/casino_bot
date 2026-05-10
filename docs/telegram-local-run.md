@@ -28,6 +28,8 @@ aiogram 3.x is excellent for larger async apps and router composition; we can re
 In your **`.env`** (copy from [.env.example](../.env.example)) set:
 
 ```bash
+# Must be the actual value from @BotFather (/token), like `123456789:AAH…`.
+# Do not use documentation placeholders (e.g. `TOKEN_FROM_BOTFATHER`).
 TELEGRAM_BOT_TOKEN=your_token_from_botfather
 TELEGRAM_BOT_ENABLED=true
 # Default allows only development and staging polling:

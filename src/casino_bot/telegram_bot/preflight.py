@@ -2,7 +2,19 @@
 
 from __future__ import annotations
 
+import re
+
 from casino_bot.settings import Settings
+
+# BotFather issues ``<numeric_bot_id>:<secret>`` (secret is typically ~35 chars, [A-Za-z0-9_-]).
+_TOKEN_RE = re.compile(
+    r"^[0-9]{6,}:[A-Za-z0-9_-]{30,}$",
+)
+
+
+def telegram_bot_token_shape_valid(token: str) -> bool:
+    """True if ``token`` matches the usual Bot API token shape (local check only)."""
+    return bool(_TOKEN_RE.fullmatch(token.strip()))
 
 
 def telegram_polling_startup_error(cfg: Settings) -> str | None:
@@ -12,6 +24,13 @@ def telegram_polling_startup_error(cfg: Settings) -> str | None:
         return (
             "TELEGRAM_BOT_TOKEN is not set. Add your bot token to the environment "
             "(see docs/telegram-local-run.md)."
+        )
+    if not telegram_bot_token_shape_valid(token):
+        return (
+            "TELEGRAM_BOT_TOKEN does not look like a real BotFather API token "
+            "(expected digits, colon, then a long secret, e.g. `123456789:AAH…`). "
+            "Replace documentation placeholders such as `TOKEN_FROM_BOTFATHER` with "
+            "the value from @BotFather (/token)."
         )
     if not cfg.TELEGRAM_BOT_ENABLED:
         return (

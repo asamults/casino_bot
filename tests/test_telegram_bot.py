@@ -37,6 +37,19 @@ def test_preflight_reports_missing_token() -> None:
     assert "TELEGRAM_BOT_TOKEN" in err
 
 
+def test_preflight_rejects_doc_placeholder_token() -> None:
+    cfg = Settings(
+        _env_file=None,
+        TELEGRAM_BOT_ENABLED=True,
+        TELEGRAM_BOT_TOKEN="TOKEN_FROM_BOTFATHER",
+        TELEGRAM_POLLING_ALLOWED_ENVIRONMENTS=["development"],
+        ENVIRONMENT="development",
+    )
+    err = telegram_polling_startup_error(cfg)
+    assert err is not None
+    assert "BotFather" in err
+
+
 def test_preflight_blocks_production_with_default_allowlist(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -56,7 +69,10 @@ def test_preflight_blocks_production_with_default_allowlist(
     monkeypatch.setenv("ALLOWED_HOSTS", "api.example.com")
     monkeypatch.setenv("BILLING_ALLOWED_RETURN_HOSTS", "admin.example.com")
     monkeypatch.setenv("TELEGRAM_BOT_ENABLED", "true")
-    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "999999999:ABCDEF_TEST_TOKEN_NOT_SECRET")
+    monkeypatch.setenv(
+        "TELEGRAM_BOT_TOKEN",
+        "999999999:ABCDEF_TEST_TOKEN_NOT_SECRET_XXXXX",  # BotFather-shaped dummy
+    )
     cfg = Settings(_env_file=None)
     err = telegram_polling_startup_error(cfg)
     assert err is not None
