@@ -166,6 +166,11 @@ class Settings(BaseSettings):
     LEGACY_ADMIN_SUNSET_AT: datetime = datetime(2026, 8, 6, tzinfo=timezone.utc)
     LEGACY_ADMIN_DISABLE: bool = False
 
+    # Telegram bot (polling runner is opt-in — see docs/telegram-local-run.md).
+    TELEGRAM_BOT_TOKEN: str = ""
+    TELEGRAM_BOT_ENABLED: bool = False
+    TELEGRAM_POLLING_ALLOWED_ENVIRONMENTS: list[str] = ["development", "staging"]
+
     # Operational drills / fault injection (dev/test only).
     #
     # These flags are **for local GameDay drills** and must never be enabled in production.
@@ -174,7 +179,11 @@ class Settings(BaseSettings):
     DRILL_SUPERADMIN_TOKEN: str = ""
 
     @field_validator(
-        "SECRET_KEY", "DATABASE_URL", "JWT_SIGNING_KEY", "REFRESH_TOKEN_PEPPER"
+        "SECRET_KEY",
+        "DATABASE_URL",
+        "JWT_SIGNING_KEY",
+        "REFRESH_TOKEN_PEPPER",
+        "TELEGRAM_BOT_TOKEN",
     )
     @classmethod
     def strip_strings(cls, v: str) -> str:
@@ -200,7 +209,10 @@ class Settings(BaseSettings):
         return value
 
     @field_validator(
-        "BILLING_ALLOWED_PLANS", "BILLING_ALLOWED_RETURN_HOSTS", mode="before"
+        "BILLING_ALLOWED_PLANS",
+        "BILLING_ALLOWED_RETURN_HOSTS",
+        "TELEGRAM_POLLING_ALLOWED_ENVIRONMENTS",
+        mode="before",
     )
     @classmethod
     def split_csv_lists(cls, value):
