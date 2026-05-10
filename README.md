@@ -127,7 +127,7 @@ Configure variables via the process environment or a `.env` file in the project 
 | `DATABASE_URL` | SQLAlchemy database URL (e.g. PostgreSQL with `psycopg` v3). Use host **`localhost`** when you run Alembic or uvicorn **on your machine**; **`postgres`** is only valid **inside** Docker Compose (the API container resolves that service name). If Alembic errors with “failed to resolve host `postgres`”, your `.env` is set for Compose—switch `DATABASE_URL` to `localhost` for local CLI use (with Postgres reachable on port 5432). |
 | `SECRET_KEY` | Secret for signing JWTs (must be unique in production, not `DEV_ONLY_CHANGE_ME`). |
 
-From the **repository root** (the `casino_bot` project directory, not a literal `/path/to/...` path): install dependencies (`pip install -r requirements.txt`), copy `.env.example` to `.env` if needed, run migrations `alembic upgrade head`, set `export PYTHONPATH=src` (or `pip install -e .`), then `uvicorn casino_bot.main:app --reload`. If port 8000 is in use (`Address already in use`), use another port, e.g. `--port 8001`. `GET /health` is the liveness probe; `GET /ready` checks the database and is used for readiness monitoring and the Docker Compose API healthcheck.
+From the **repository root** (the `casino_bot` project directory, not a literal `/path/to/...` path): install dependencies (`pip install -r requirements.txt`), copy `.env.example` to `.env` if needed, run migrations `alembic upgrade head` (Alembic’s `env.py` adds `src/` to Python’s path, so migrations do not require `PYTHONPATH`), set `export PYTHONPATH=src` (or `pip install -e .`), then `uvicorn casino_bot.main:app --reload`. If port 8000 is in use (`Address already in use`), use another port, e.g. `--port 8001`. `GET /health` is the liveness probe; `GET /ready` checks the database and is used for readiness monitoring and the Docker Compose API healthcheck.
 
 Tests: `pytest` (`pyproject.toml` sets `pythonpath = ["src"]`).
 
@@ -192,7 +192,7 @@ If Alembic reports **`password authentication failed for user "casino"`**, the u
   - `X-Content-Type-Options: nosniff`
   - `X-Frame-Options: DENY`
   - `Referrer-Policy: no-referrer`
-  - `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'`
+  - `Content-Security-Policy`: strict `default-src 'none'` for API traffic; a **docs-only** policy on `/docs` and `/redoc` allows jsDelivr + inline bootstrap so Swagger UI / ReDoc work in the browser (see `SecurityHeadersMiddleware`).
 
 ### Secret policy and rotation
 
