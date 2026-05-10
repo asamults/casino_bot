@@ -2,12 +2,17 @@ import logging
 
 import anyio
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from casino_bot.admin.api_v1.router import router as api_v1_router
 from casino_bot.admin.login import router as admin_login_router
+from casino_bot.admin.legacy_deprecation import (
+    is_legacy_admin_path,
+    legacy_deprecation_headers,
+)
 from casino_bot.admin.router import router as admin_router
 from casino_bot.billing.api_v1 import router as billing_api_v1_router
 from casino_bot.compliance.violations import ComplianceViolation
@@ -73,6 +78,27 @@ app.include_router(api_v1_router)
 app.include_router(billing_api_v1_router)
 app.include_router(admin_login_router)
 app.include_router(admin_router)
+
+
+@app.exception_handler(HTTPException)
+async def legacy_admin_http_exception_handler(request: Request, exc: HTTPException):
+    """Merge deprecation headers into HTTP responses for legacy ``/admin/*``.
+
+    Dependencies such as OAuth2 bearer raise HTTPException with a JSON body
+    that bypasses Response headers set earlier by ``legacy_admin_guard``."""
+    base_headers = getattr(exc, "headers", None) or {}
+    if settings.LEGACY_ADMIN_DISABLE or not is_legacy_admin_path(request.url.path):
+        return JSONResponse(
+            {"detail": jsonable_encoder(exc.detail)},
+            status_code=exc.status_code,
+            headers=dict(base_headers),
+        )
+    merged = {**dict(base_headers), **legacy_deprecation_headers(request.url.path)}
+    return JSONResponse(
+        {"detail": jsonable_encoder(exc.detail)},
+        status_code=exc.status_code,
+        headers=merged,
+    )
 
 
 @app.exception_handler(ComplianceViolation)

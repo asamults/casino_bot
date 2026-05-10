@@ -23,6 +23,20 @@ def _successor_path(path: str) -> str:
     return "/api/v1/admin"
 
 
+def is_legacy_admin_path(path: str) -> bool:
+    return path == "/admin" or path.startswith("/admin/")
+
+
+def legacy_deprecation_headers(path: str) -> dict[str, str]:
+    """RFC 8594-style deprecation headers for a legacy ``/admin/*`` path."""
+    successor = _successor_path(path)
+    return {
+        "Deprecation": "true",
+        "Sunset": format_datetime(settings.LEGACY_ADMIN_SUNSET_AT, usegmt=True),
+        "Link": f'<{successor}>; rel="successor-version"',
+    }
+
+
 def legacy_admin_guard(
     request: Request,
     response: Response,
@@ -36,11 +50,10 @@ def legacy_admin_guard(
         raise HTTPException(status_code=410, detail="Legacy admin routes are disabled")
 
     successor = _successor_path(request.url.path)
-    response.headers["Deprecation"] = "true"
-    response.headers["Sunset"] = format_datetime(
-        settings.LEGACY_ADMIN_SUNSET_AT, usegmt=True
-    )
-    response.headers["Link"] = f'<{successor}>; rel="successor-version"'
+    for header_name, header_value in legacy_deprecation_headers(
+        request.url.path
+    ).items():
+        response.headers[header_name] = header_value
 
     route = safe_route_label(
         getattr(request.scope.get("route"), "path", None)  # type: ignore[union-attr]

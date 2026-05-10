@@ -68,6 +68,15 @@ def test_legacy_login_has_deprecation_headers(admin_api_client: TestClient):
     _assert_legacy_headers(r)
 
 
+def test_legacy_admin_unauthenticated_ping_returns_deprecation_headers(
+    admin_api_client: TestClient,
+):
+    """Bearer guard returns 401 JSON; deprecation headers must still be present (RFC 8594 signals)."""
+    r = admin_api_client.get("/admin/ping")
+    assert r.status_code == 401
+    _assert_legacy_headers(r)
+
+
 def test_legacy_admin_endpoint_has_deprecation_headers(admin_api_client: TestClient):
     r_login = admin_api_client.post(
         "/admin/login",
