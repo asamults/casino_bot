@@ -6,7 +6,7 @@ This repo ships an **optional** Telegram adapter that connects with the same Pos
 
 Both libraries are viable for Telegram Bot API bots. Here we chose [**python-telegram-bot**](https://python-telegram-bot.org/) (PTB) **21.x** because:
 
-- **Small surface for a polling-only worker** — four command handlers and a single `Application.run_polling()` entrypoint are easy to follow and test.
+- **Small surface for a polling-only worker** — a handful of command handlers and a single `Application.run_polling()` entrypoint are easy to follow and test.
 - **First-class long polling** with clear lifecycle and error handling in one place.
 - **Straightforward handler testing** — command logic is split into plain functions plus thin async wrappers, so unit tests do not need to open network sockets or mock aiogram’s router stack.
 
@@ -34,10 +34,16 @@ TELEGRAM_BOT_TOKEN=your_token_from_botfather
 TELEGRAM_BOT_ENABLED=true
 # Default allows only development and staging polling:
 # TELEGRAM_POLLING_ALLOWED_ENVIRONMENTS=development,staging
+#
+# Optional /support reply (both empty → generic “contact your operator” line in the bot):
+# TELEGRAM_SUPPORT_TEXT=First line\nSecond line
+# SUPPORT_CONTACT_URL=https://example.com/support
 ```
 
 - **`TELEGRAM_BOT_ENABLED`** defaults to `false`. The polling runner exits unless it is **`true`** and the token is set, even in development — this avoids silently opening Telegram when you only meant to run the API tests.
 - **`TELEGRAM_POLLING_ALLOWED_ENVIRONMENTS`** defaults to **`development,staging`**. **`production` is excluded** until you deliberately change this list — so prod cannot accidentally attach a polling bot when someone only sets `TELEGRAM_BOT_TOKEN`.
+- **`TELEGRAM_SUPPORT_TEXT`** — optional multi-line copy for `/support`. In a single-line `.env` value you can use a literal `\n` sequence; it is turned into a real newline at load time. Leave empty for the built-in generic support line.
+- **`SUPPORT_CONTACT_URL`** — optional URL shown on `/support` after any `TELEGRAM_SUPPORT_TEXT`. Leave empty if you do not want a link in the reply. Do not commit real production contacts in repo defaults.
 
 FastAPI and tests load `Settings` without requiring `TELEGRAM_BOT_TOKEN`.
 
@@ -107,9 +113,13 @@ Open your bot’s chat (the username from BotFather) and try:
 | Command   | Expected behaviour |
 |----------|---------------------|
 | `/start` | Creates or loads a **`users`** row with your `telegram_user_id`, commits, and replies with welcome text including **internal user id**. |
-| `/help` | Lists **`/start`**, **`/help`**, **`/me`**, **`/balance`**. |
+| `/help` | Lists available commands (including **`/status`**, **`/profile`**, **`/admin`**, **`/support`**). |
 | `/me`   | Shows Telegram id plus internal user id if linked (after **`/start`**). |
 | `/balance` | Shows token balance when a **`token_accounts`** row exists; otherwise a **safe message** (`Balance unavailable …`) rather than crashing. |
+| `/status` | Short **liveness vs database readiness** summary (aligned with **`GET /health`** / **`GET /ready`** semantics; no HTTP call to localhost). |
+| `/profile` | Linked account fields only (**internal id**, Telegram id, **active** flag, **created** timestamp). Prompts **`/start`** if not linked. |
+| `/admin` | Static pointer to the **HTTP Admin API** (`/api/v1/admin/`, documented in README); **no admin actions** in Telegram. |
+| `/support` | **`TELEGRAM_SUPPORT_TEXT`** and/or **`SUPPORT_CONTACT_URL`** when set; otherwise a **generic operator** line (no baked-in production contacts). |
 
 **Security note:** Logs record only **command name**, **telegram user id**, and **internal user id** when known — not bot tokens or full webhook/update payloads.
 

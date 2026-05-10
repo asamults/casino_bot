@@ -11,10 +11,14 @@ from telegram.ext import Application, CommandHandler
 from casino_bot.core.logging_config import configure_logging
 from casino_bot.settings import settings
 from casino_bot.telegram_bot.handlers import (
+    cmd_admin,
     cmd_balance,
     cmd_help,
     cmd_me,
+    cmd_profile,
     cmd_start,
+    cmd_status,
+    cmd_support,
 )
 from casino_bot.telegram_bot.preflight import telegram_polling_startup_error
 
@@ -29,6 +33,10 @@ def build_application() -> Application:
     application.add_handler(CommandHandler("help", cmd_help))
     application.add_handler(CommandHandler("me", cmd_me))
     application.add_handler(CommandHandler("balance", cmd_balance))
+    application.add_handler(CommandHandler("status", cmd_status))
+    application.add_handler(CommandHandler("profile", cmd_profile))
+    application.add_handler(CommandHandler("admin", cmd_admin))
+    application.add_handler(CommandHandler("support", cmd_support))
     return application
 
 

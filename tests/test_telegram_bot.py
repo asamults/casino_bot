@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from casino_bot.settings import Settings
+from casino_bot.telegram_bot.handlers import database_ready_for_status
 from casino_bot.telegram_bot.preflight import telegram_polling_startup_error
 from casino_bot.telegram_bot.texts import (
     BALANCE_UNAVAILABLE,
+    GENERIC_SUPPORT_LINE,
+    admin_message,
+    help_message,
+    profile_message,
+    status_summary_text,
+    support_reply,
     welcome_message,
 )
 from casino_bot.telegram_bot.user_ops import (
@@ -17,8 +26,13 @@ from casino_bot.telegram_bot.user_ops import (
 )
 
 
-def test_settings_allow_empty_telegram_token(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_settings_allow_empty_telegram_token(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Hermetic defaults: developer shell / project .env may set TELEGRAM_* while tests run from repo root.
+    monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("TELEGRAM_BOT_ENABLED", raising=False)
     cfg = Settings(_env_file=None)
     assert cfg.TELEGRAM_BOT_TOKEN == ""
     assert cfg.TELEGRAM_BOT_ENABLED is False
@@ -108,3 +122,99 @@ def test_resolve_balance_reply_safe_without_token_account(sqlite_session) -> Non
     sqlite_session.commit()
     reply = resolve_balance_reply(sqlite_session, user_id=u.id)
     assert reply == BALANCE_UNAVAILABLE
+
+
+def test_status_summary_text_shape() -> None:
+    ok = status_summary_text(database_ready=True)
+    assert "Liveness: ok" in ok
+    assert "Database readiness: ok" in ok
+    bad = status_summary_text(database_ready=False)
+    assert "unavailable" in bad
+
+
+def test_database_ready_for_status_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    import casino_bot.telegram_bot.handlers as h
+
+    monkeypatch.setattr(h, "check_database_ready", lambda: None)
+    monkeypatch.setattr(h.settings, "ENVIRONMENT", "development", raising=False)
+    monkeypatch.setattr(h.settings, "DRILL_FORCE_DB_NOT_READY", False, raising=False)
+    assert database_ready_for_status() is True
+
+
+def test_database_ready_for_status_drill(monkeypatch: pytest.MonkeyPatch) -> None:
+    import casino_bot.telegram_bot.handlers as h
+
+    monkeypatch.setattr(h.settings, "ENVIRONMENT", "development", raising=False)
+    monkeypatch.setattr(h.settings, "DRILL_FORCE_DB_NOT_READY", True, raising=False)
+    assert database_ready_for_status() is False
+
+
+def test_database_ready_for_status_db_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    import casino_bot.telegram_bot.handlers as h
+
+    def boom() -> None:
+        raise RuntimeError("simulated db failure")
+
+    monkeypatch.setattr(h, "check_database_ready", boom)
+    monkeypatch.setattr(h.settings, "ENVIRONMENT", "development", raising=False)
+    monkeypatch.setattr(h.settings, "DRILL_FORCE_DB_NOT_READY", False, raising=False)
+    assert database_ready_for_status() is False
+
+
+def test_database_ready_drill_ignored_in_production(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import casino_bot.telegram_bot.handlers as h
+
+    called: list[int] = []
+
+    def mark() -> None:
+        called.append(1)
+
+    monkeypatch.setattr(h, "check_database_ready", mark)
+    monkeypatch.setattr(h.settings, "ENVIRONMENT", "production", raising=False)
+    monkeypatch.setattr(h.settings, "DRILL_FORCE_DB_NOT_READY", True, raising=False)
+    assert database_ready_for_status() is True
+    assert called == [1]
+
+
+def test_profile_message_shape() -> None:
+    text = profile_message(
+        internal_user_id=7,
+        telegram_user_id=99,
+        is_active=False,
+        created_at_iso="2026-05-01T12:00:00+00:00",
+    )
+    assert "7" in text and "99" in text
+    assert "inactive" in text
+    assert "2026-05-01" in text
+
+
+def test_admin_message_points_at_v1_admin() -> None:
+    body = admin_message()
+    assert "/api/v1/admin/" in body
+    assert "POST /api/v1/admin/login" in body
+
+
+def test_support_reply_empty_config() -> None:
+    assert support_reply(support_text="", contact_url="") == GENERIC_SUPPORT_LINE
+
+
+def test_support_reply_with_text_and_url() -> None:
+    body = support_reply(
+        support_text="Email us at support@example.com",
+        contact_url="https://example.com/help",
+    )
+    assert "support@example.com" in body
+    assert "https://example.com/help" in body
+
+
+def test_help_message_lists_new_commands() -> None:
+    body = help_message()
+    for cmd in ("/status", "/profile", "/admin", "/support"):
+        assert cmd in body
+
+
+def test_settings_telegram_support_text_unescape() -> None:
+    cfg = Settings(_env_file=None, TELEGRAM_SUPPORT_TEXT=r"Hello\nWorld")
+    assert cfg.TELEGRAM_SUPPORT_TEXT == "Hello\nWorld"

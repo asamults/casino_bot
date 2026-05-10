@@ -7,6 +7,10 @@ BALANCE_UNAVAILABLE = "Balance unavailable — your token account is not initial
 
 NOT_LINKED_BALANCE = "Balance unavailable — send /start to link your account first."
 
+NOT_LINKED_PROFILE = "Profile unavailable — send /start to link your account first."
+
+GENERIC_SUPPORT_LINE = "For help, contact your operator through the support channel configured for your deployment."
+
 
 def welcome_message(*, internal_user_id: int) -> str:
     return (
@@ -22,7 +26,11 @@ def help_message() -> str:
         "/start — Register or reconnect (links your Telegram account)\n"
         "/help — Show this message\n"
         "/me — Show your Telegram id and linked internal user id\n"
-        "/balance — Show your token balance (if initialized)"
+        "/balance — Show your token balance (if initialized)\n"
+        "/status — Liveness vs database readiness (high level)\n"
+        "/profile — Your linked account summary (non-sensitive fields)\n"
+        "/admin — Where admin tools live (not in Telegram)\n"
+        "/support — How to get help for this deployment"
     )
 
 
@@ -37,3 +45,48 @@ def me_message(*, telegram_user_id: int, internal_user_id: int | None) -> str:
 
 def format_balance_message(balance: float) -> str:
     return f"Token balance: {balance}"
+
+
+def status_summary_text(*, database_ready: bool) -> str:
+    """Human-readable liveness vs readiness (Telegram-facing; keep high level)."""
+    db_line = "ok" if database_ready else "unavailable"
+    return f"Liveness: ok\nDatabase readiness: {db_line}"
+
+
+def profile_message(
+    *,
+    internal_user_id: int,
+    telegram_user_id: int,
+    is_active: bool,
+    created_at_iso: str,
+) -> str:
+    active_word = "active" if is_active else "inactive"
+    return (
+        f"User id: {internal_user_id}\n"
+        f"Telegram user id: {telegram_user_id}\n"
+        f"Account: {active_word}\n"
+        f"Created: {created_at_iso}"
+    )
+
+
+def admin_message() -> str:
+    return (
+        "Admin actions are not available via Telegram.\n\n"
+        "Use the HTTP Admin API under /api/v1/admin/ (see the project README). "
+        "Sign in via POST /api/v1/admin/login from a trusted client — do not send "
+        "credentials or tokens in this chat."
+    )
+
+
+def support_reply(*, support_text: str, contact_url: str) -> str:
+    """Build /support body from configured settings (both may be empty)."""
+    chunks: list[str] = []
+    st = support_text.strip()
+    if st:
+        chunks.append(st)
+    cu = contact_url.strip()
+    if cu:
+        chunks.append(f"Contact link: {cu}")
+    if not chunks:
+        return GENERIC_SUPPORT_LINE
+    return "\n\n".join(chunks)

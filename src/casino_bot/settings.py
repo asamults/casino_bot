@@ -170,6 +170,9 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_BOT_ENABLED: bool = False
     TELEGRAM_POLLING_ALLOWED_ENVIRONMENTS: list[str] = ["development", "staging"]
+    # Optional /support reply (see docs/telegram-local-run.md). Empty defaults to a generic line.
+    TELEGRAM_SUPPORT_TEXT: str = ""
+    SUPPORT_CONTACT_URL: str = ""
 
     # Operational drills / fault injection (dev/test only).
     #
@@ -184,10 +187,20 @@ class Settings(BaseSettings):
         "JWT_SIGNING_KEY",
         "REFRESH_TOKEN_PEPPER",
         "TELEGRAM_BOT_TOKEN",
+        "TELEGRAM_SUPPORT_TEXT",
+        "SUPPORT_CONTACT_URL",
     )
     @classmethod
     def strip_strings(cls, v: str) -> str:
         return v.strip() if isinstance(v, str) else v
+
+    @field_validator("TELEGRAM_SUPPORT_TEXT", mode="after")
+    @classmethod
+    def telegram_support_unescape_newlines(cls, v: str) -> str:
+        """Allow single-line env values with literal ``\\n`` for line breaks."""
+        if not v or "\\n" not in v:
+            return v
+        return v.replace("\\n", "\n")
 
     @field_validator("CORS_ALLOW_ORIGINS", mode="before")
     @classmethod
