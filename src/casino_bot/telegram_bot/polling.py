@@ -6,13 +6,15 @@ import logging
 import sys
 
 from telegram.error import InvalidToken
-from telegram.ext import Application, CommandHandler
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler
 
 from casino_bot.core.logging_config import configure_logging
 from casino_bot.settings import settings
 from casino_bot.telegram_bot.handlers import (
+    callback_flip,
     cmd_admin,
     cmd_balance,
+    cmd_flip,
     cmd_help,
     cmd_me,
     cmd_profile,
@@ -33,6 +35,8 @@ def build_application() -> Application:
     application.add_handler(CommandHandler("help", cmd_help))
     application.add_handler(CommandHandler("me", cmd_me))
     application.add_handler(CommandHandler("balance", cmd_balance))
+    application.add_handler(CommandHandler("flip", cmd_flip))
+    application.add_handler(CallbackQueryHandler(callback_flip, pattern=r"^flip:\d+$"))
     application.add_handler(CommandHandler("status", cmd_status))
     application.add_handler(CommandHandler("profile", cmd_profile))
     application.add_handler(CommandHandler("admin", cmd_admin))

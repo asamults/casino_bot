@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from casino_bot.telegram_bot.game_texts import FLIP_HELP_LINE
+
 
 BALANCE_UNAVAILABLE = "Balance unavailable — your token account is not initialized yet."
 
@@ -27,6 +29,7 @@ def help_message() -> str:
         "/help — Show this message\n"
         "/me — Show your Telegram id and linked internal user id\n"
         "/balance — Show your token balance (if initialized)\n"
+        f"{FLIP_HELP_LINE}\n"
         "/status — Liveness vs database readiness (high level)\n"
         "/profile — Your linked account summary (non-sensitive fields)\n"
         "/admin — Where admin tools live (not in Telegram)\n"

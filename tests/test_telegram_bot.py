@@ -211,10 +211,36 @@ def test_support_reply_with_text_and_url() -> None:
 
 def test_help_message_lists_new_commands() -> None:
     body = help_message()
-    for cmd in ("/status", "/profile", "/admin", "/support"):
+    for cmd in ("/flip", "/status", "/profile", "/admin", "/support"):
         assert cmd in body
 
 
 def test_settings_telegram_support_text_unescape() -> None:
     cfg = Settings(_env_file=None, TELEGRAM_SUPPORT_TEXT=r"Hello\nWorld")
     assert cfg.TELEGRAM_SUPPORT_TEXT == "Hello\nWorld"
+
+
+def test_flip_reply_rejected_insufficient_balance() -> None:
+    from types import SimpleNamespace
+
+    from casino_bot.telegram_bot.handlers import _flip_reply_from_round
+
+    gr = SimpleNamespace(
+        status="rejected",
+        details_json={
+            "rejection_reason": "Operation would result in negative balance",
+        },
+    )
+    body = _flip_reply_from_round(gr, balance_line="Token balance: 0")
+    assert "Not enough tokens" in body
+
+
+def test_flip_reply_win_lose_committed() -> None:
+    from types import SimpleNamespace
+
+    from casino_bot.telegram_bot.handlers import _flip_reply_from_round
+
+    win = SimpleNamespace(status="committed", details_json={"outcome": "win"})
+    assert "You won" in _flip_reply_from_round(win, balance_line="Token balance: 11")
+    lose = SimpleNamespace(status="committed", details_json={"outcome": "lose"})
+    assert "You lost" in _flip_reply_from_round(lose, balance_line="Token balance: 9")
