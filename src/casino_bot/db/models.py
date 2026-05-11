@@ -9,10 +9,12 @@ from sqlalchemy import (
     JSON,
     BigInteger,
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     UniqueConstraint,
@@ -159,3 +161,40 @@ class LedgerEntry(Base):
     )
     delta = Column(Float, nullable=False)
     reason = Column(String(255), nullable=False)
+
+
+class GameRound(Base):
+    """Single-user game round record used for idempotency and audit/debug.
+
+    Phase 1 uses a composite unique key (user_id, game_id, idempotency_key) so
+    the same idempotency key can be safely reused across different games, while
+    still preventing double-spend within a specific game surface.
+    """
+
+    __tablename__ = "game_rounds"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    round_id = Column(String(36), nullable=False, unique=True, index=True)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    game_id = Column(String(128), nullable=False, index=True)
+    idempotency_key = Column(String(128), nullable=False)
+    bet_amount = Column(Float, nullable=False)
+    payout_delta = Column(Float, nullable=False)
+    status = Column(String(16), nullable=False, index=True)  # committed|rejected|failed
+    details_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    committed_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "game_id",
+            "idempotency_key",
+            name="uq_game_rounds_user_game_idempotency_key",
+        ),
+        CheckConstraint("bet_amount >= 0", name="ck_game_rounds_bet_amount_non_negative"),
+        Index("ix_game_rounds_user_id_created_at", "user_id", "created_at"),
+        Index("ix_game_rounds_game_id_created_at", "game_id", "created_at"),
+    )
