@@ -187,6 +187,14 @@ class Settings(BaseSettings):
     COIN_FLIP_MIN_BET: int = 1
     COIN_FLIP_MAX_BET: int = 100
     COIN_FLIP_COOLDOWN_SECONDS: int = 0
+    # When ENVIRONMENT=production and COIN_FLIP_COOLDOWN_SECONDS is 0, apply a 3s
+    # default unless this flag is true (explicit infinite-speed flip in prod).
+    COIN_FLIP_ALLOW_ZERO_COOLDOWN_IN_PRODUCTION: bool = False
+
+    # Telegram — Phase 4A guardrails (in-process sliding window; 0 = disable limit)
+    TELEGRAM_FLIP_PROMPT_RATE_LIMIT_PER_MINUTE: int = 30
+    TELEGRAM_FLIP_ACTION_RATE_LIMIT_PER_MINUTE: int = 60
+    TELEGRAM_ROUNDS_HISTORY_LIMIT: int = 15
 
     @field_validator(
         "SECRET_KEY",
@@ -243,6 +251,40 @@ class Settings(BaseSettings):
         if self.COIN_FLIP_COOLDOWN_SECONDS < 0:
             raise ValueError("COIN_FLIP_COOLDOWN_SECONDS must be >= 0")
         return self
+
+    @field_validator(
+        "TELEGRAM_FLIP_PROMPT_RATE_LIMIT_PER_MINUTE",
+        "TELEGRAM_FLIP_ACTION_RATE_LIMIT_PER_MINUTE",
+    )
+    @classmethod
+    def telegram_flip_rate_limits_non_negative(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("Telegram flip rate limits must be >= 0 (0 disables)")
+        return v
+
+    @field_validator("TELEGRAM_ROUNDS_HISTORY_LIMIT")
+    @classmethod
+    def telegram_rounds_history_limit_bounds(cls, v: int) -> int:
+        if v < 1 or v > 100:
+            raise ValueError("TELEGRAM_ROUNDS_HISTORY_LIMIT must be between 1 and 100")
+        return v
+
+    def effective_coin_flip_cooldown_seconds(self) -> int:
+        """Cooldown applied by ``run_game`` for coin flip.
+
+        Development/staging use ``COIN_FLIP_COOLDOWN_SECONDS`` as configured (often 0).
+
+        Production defaults to **3 seconds** when ``COIN_FLIP_COOLDOWN_SECONDS`` is 0,
+        unless ``COIN_FLIP_ALLOW_ZERO_COOLDOWN_IN_PRODUCTION`` is true.
+        """
+        raw = self.COIN_FLIP_COOLDOWN_SECONDS
+        if self.ENVIRONMENT != "production":
+            return raw
+        if raw > 0:
+            return raw
+        if self.COIN_FLIP_ALLOW_ZERO_COOLDOWN_IN_PRODUCTION:
+            return 0
+        return 3
 
     @field_validator("CORS_ALLOW_ORIGINS", mode="before")
     @classmethod

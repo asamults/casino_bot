@@ -211,22 +211,23 @@ def test_above_max_bet_rejected(sqlite_session) -> None:
 
 
 def test_insufficient_funds_rejected(sqlite_session, monkeypatch: pytest.MonkeyPatch):
+    """Stake must be covered up front (even if RNG would have yielded a win)."""
     monkeypatch.setattr("casino_bot.games.service.new_rng", lambda: _FakeRng(0.99))
     user = ensure_telegram_user(sqlite_session, telegram_user_id=92007)
     _fund(sqlite_session, user_id=user.id, amount=3.0)
     sqlite_session.commit()
 
-    gr = run_game(
-        sqlite_session,
-        user_id=user.id,
-        game_id="coin_flip",
-        bet_amount=10,
-        idempotency_key="poor",
-        actor="tests",
-    )
-    sqlite_session.commit()
+    with pytest.raises(GameEngineRejected) as excinfo:
+        run_game(
+            sqlite_session,
+            user_id=user.id,
+            game_id="coin_flip",
+            bet_amount=10,
+            idempotency_key="poor",
+            actor="tests",
+        )
+    assert excinfo.value.code == "insufficient_balance"
 
-    assert gr.status == "rejected"
     bal = (
         sqlite_session.query(TokenAccount)
         .filter(TokenAccount.user_id == user.id)
@@ -234,6 +235,105 @@ def test_insufficient_funds_rejected(sqlite_session, monkeypatch: pytest.MonkeyP
         .balance
     )
     assert bal == 3.0
+
+
+def test_insufficient_balance_blocks_win_outcome(
+    sqlite_session, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr("casino_bot.games.service.new_rng", lambda: _FakeRng(0.0))
+    user = ensure_telegram_user(sqlite_session, telegram_user_id=92010)
+    _fund(sqlite_session, user_id=user.id, amount=7.0)
+    sqlite_session.commit()
+
+    with pytest.raises(GameEngineRejected) as excinfo:
+        run_game(
+            sqlite_session,
+            user_id=user.id,
+            game_id="coin_flip",
+            bet_amount=10,
+            idempotency_key="cant-cover-10",
+            actor="tests",
+        )
+    assert excinfo.value.code == "insufficient_balance"
+    bal = (
+        sqlite_session.query(TokenAccount)
+        .filter(TokenAccount.user_id == user.id)
+        .one()
+        .balance
+    )
+    assert bal == 7.0
+
+
+def test_idempotent_replay_skips_cooldown(
+    sqlite_session, monkeypatch: pytest.MonkeyPatch
+):
+    cfg = Settings(
+        _env_file=None,
+        GAMES_ENABLED=["coin_flip"],
+        COIN_FLIP_COOLDOWN_SECONDS=3600,
+    )
+    monkeypatch.setattr("casino_bot.settings.settings", cfg)
+    monkeypatch.setattr("casino_bot.games.service.new_rng", lambda: _FakeRng(0.0))
+    user = ensure_telegram_user(sqlite_session, telegram_user_id=92011)
+    _fund(sqlite_session, user_id=user.id, amount=100.0)
+    sqlite_session.commit()
+
+    gr1 = run_game(
+        sqlite_session,
+        user_id=user.id,
+        game_id="coin_flip",
+        bet_amount=1,
+        idempotency_key="same-key",
+        actor="tests",
+    )
+    sqlite_session.commit()
+    gr2 = run_game(
+        sqlite_session,
+        user_id=user.id,
+        game_id="coin_flip",
+        bet_amount=1,
+        idempotency_key="same-key",
+        actor="tests",
+    )
+    sqlite_session.commit()
+    assert gr1.id == gr2.id
+
+
+def test_cooldown_blocks_new_idempotency_key(
+    sqlite_session, monkeypatch: pytest.MonkeyPatch
+):
+    cfg = Settings(
+        _env_file=None,
+        GAMES_ENABLED=["coin_flip"],
+        COIN_FLIP_COOLDOWN_SECONDS=3600,
+    )
+    monkeypatch.setattr("casino_bot.settings.settings", cfg)
+    monkeypatch.setattr("casino_bot.games.service.new_rng", lambda: _FakeRng(0.0))
+    user = ensure_telegram_user(sqlite_session, telegram_user_id=92012)
+    _fund(sqlite_session, user_id=user.id, amount=100.0)
+    sqlite_session.commit()
+
+    run_game(
+        sqlite_session,
+        user_id=user.id,
+        game_id="coin_flip",
+        bet_amount=1,
+        idempotency_key="first",
+        actor="tests",
+    )
+    sqlite_session.commit()
+
+    with pytest.raises(GameEngineRejected) as excinfo:
+        run_game(
+            sqlite_session,
+            user_id=user.id,
+            game_id="coin_flip",
+            bet_amount=1,
+            idempotency_key="second",
+            actor="tests",
+        )
+    assert excinfo.value.code == "cooldown_active"
+    assert excinfo.value.cooldown_remaining_seconds is not None
 
 
 def test_coin_flip_win_rate_sanity_200_flips(sqlite_session) -> None:

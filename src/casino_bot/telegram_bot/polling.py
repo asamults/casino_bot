@@ -18,6 +18,7 @@ from casino_bot.telegram_bot.handlers import (
     cmd_help,
     cmd_me,
     cmd_profile,
+    cmd_rounds,
     cmd_start,
     cmd_status,
     cmd_support,
@@ -36,6 +37,7 @@ def build_application() -> Application:
     application.add_handler(CommandHandler("me", cmd_me))
     application.add_handler(CommandHandler("balance", cmd_balance))
     application.add_handler(CommandHandler("flip", cmd_flip))
+    application.add_handler(CommandHandler("rounds", cmd_rounds))
     application.add_handler(CallbackQueryHandler(callback_flip, pattern=r"^flip:\d+$"))
     application.add_handler(CommandHandler("status", cmd_status))
     application.add_handler(CommandHandler("profile", cmd_profile))

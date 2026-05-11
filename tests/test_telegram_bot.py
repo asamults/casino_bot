@@ -211,7 +211,7 @@ def test_support_reply_with_text_and_url() -> None:
 
 def test_help_message_lists_new_commands() -> None:
     body = help_message()
-    for cmd in ("/flip", "/status", "/profile", "/admin", "/support"):
+    for cmd in ("/flip", "/rounds", "/status", "/profile", "/admin", "/support"):
         assert cmd in body
 
 
@@ -221,26 +221,46 @@ def test_settings_telegram_support_text_unescape() -> None:
 
 
 def test_flip_reply_rejected_insufficient_balance() -> None:
-    from types import SimpleNamespace
+    from casino_bot.telegram_bot.handlers import (
+        _FlipSnapshot,
+        _flip_reply_from_snapshot,
+    )
 
-    from casino_bot.telegram_bot.handlers import _flip_reply_from_round
-
-    gr = SimpleNamespace(
+    snap = _FlipSnapshot(
         status="rejected",
-        details_json={
+        details={
             "rejection_reason": "Operation would result in negative balance",
         },
+        balance_line="Token balance: 0",
+        user_id=1,
+        bet_amount=10,
+        idempotent_replay=False,
     )
-    body = _flip_reply_from_round(gr, balance_line="Token balance: 0")
+    body = _flip_reply_from_snapshot(snap)
     assert "Not enough tokens" in body
 
 
 def test_flip_reply_win_lose_committed() -> None:
-    from types import SimpleNamespace
+    from casino_bot.telegram_bot.handlers import (
+        _FlipSnapshot,
+        _flip_reply_from_snapshot,
+    )
 
-    from casino_bot.telegram_bot.handlers import _flip_reply_from_round
-
-    win = SimpleNamespace(status="committed", details_json={"outcome": "win"})
-    assert "You won" in _flip_reply_from_round(win, balance_line="Token balance: 11")
-    lose = SimpleNamespace(status="committed", details_json={"outcome": "lose"})
-    assert "You lost" in _flip_reply_from_round(lose, balance_line="Token balance: 9")
+    win = _FlipSnapshot(
+        status="committed",
+        details={"outcome": "win"},
+        balance_line="Token balance: 11",
+        user_id=1,
+        bet_amount=10,
+        idempotent_replay=False,
+    )
+    assert "Result: Win" in _flip_reply_from_snapshot(win)
+    lose = _FlipSnapshot(
+        status="committed",
+        details={"outcome": "lose"},
+        balance_line="Token balance: 9",
+        user_id=1,
+        bet_amount=10,
+        idempotent_replay=False,
+    )
+    assert "Result: Lose" in _flip_reply_from_snapshot(lose)
