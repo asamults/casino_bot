@@ -40,7 +40,10 @@ def test_round_idempotency_same_key_no_double_spend(sqlite_session) -> None:
     sqlite_session.commit()
 
     bal_after_1 = (
-        sqlite_session.query(TokenAccount).filter(TokenAccount.user_id == user.id).one().balance
+        sqlite_session.query(TokenAccount)
+        .filter(TokenAccount.user_id == user.id)
+        .one()
+        .balance
     )
 
     gr2 = execute_game_round(
@@ -55,7 +58,10 @@ def test_round_idempotency_same_key_no_double_spend(sqlite_session) -> None:
     sqlite_session.commit()
 
     bal_after_2 = (
-        sqlite_session.query(TokenAccount).filter(TokenAccount.user_id == user.id).one().balance
+        sqlite_session.query(TokenAccount)
+        .filter(TokenAccount.user_id == user.id)
+        .one()
+        .balance
     )
 
     assert gr1.id == gr2.id
@@ -85,7 +91,12 @@ def test_round_insufficient_funds_rejected_no_balance_change(sqlite_session) -> 
     )
     sqlite_session.commit()
 
-    bal = sqlite_session.query(TokenAccount).filter(TokenAccount.user_id == user.id).one().balance
+    bal = (
+        sqlite_session.query(TokenAccount)
+        .filter(TokenAccount.user_id == user.id)
+        .one()
+        .balance
+    )
     ledger_after = (
         sqlite_session.query(LedgerEntry).filter(LedgerEntry.user_id == user.id).count()
     )
@@ -152,7 +163,11 @@ def test_round_concurrent_same_key_single_commit(tmp_path: Path) -> None:
     assert results[1][0] == "committed"
 
     s_check = Session()
-    bal = s_check.query(TokenAccount).filter(TokenAccount.user_id == user_id).one().balance
+    bal = (
+        s_check.query(TokenAccount)
+        .filter(TokenAccount.user_id == user_id)
+        .one()
+        .balance
+    )
     s_check.close()
     assert bal == 6.0
-

@@ -185,4 +185,3 @@ def execute_game_round(
             exc_info=exc,
         )
         raise
-

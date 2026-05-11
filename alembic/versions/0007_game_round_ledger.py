@@ -32,7 +32,9 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("committed_at", sa.DateTime(timezone=True), nullable=True),
-        sa.CheckConstraint("bet_amount >= 0", name="ck_game_rounds_bet_amount_non_negative"),
+        sa.CheckConstraint(
+            "bet_amount >= 0", name="ck_game_rounds_bet_amount_non_negative"
+        ),
         sa.ForeignKeyConstraint(
             ["user_id"],
             ["users.id"],
@@ -68,4 +70,3 @@ def downgrade() -> None:
     op.drop_index("ix_game_rounds_game_id", table_name="game_rounds")
     op.drop_index("ix_game_rounds_user_id", table_name="game_rounds")
     op.drop_table("game_rounds")
-

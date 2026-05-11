@@ -184,7 +184,9 @@ class GameRound(Base):
     payout_delta = Column(Float, nullable=False)
     status = Column(String(16), nullable=False, index=True)  # committed|rejected|failed
     details_json = Column(JSON, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     committed_at = Column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
@@ -194,7 +196,9 @@ class GameRound(Base):
             "idempotency_key",
             name="uq_game_rounds_user_game_idempotency_key",
         ),
-        CheckConstraint("bet_amount >= 0", name="ck_game_rounds_bet_amount_non_negative"),
+        CheckConstraint(
+            "bet_amount >= 0", name="ck_game_rounds_bet_amount_non_negative"
+        ),
         Index("ix_game_rounds_user_id_created_at", "user_id", "created_at"),
         Index("ix_game_rounds_game_id_created_at", "game_id", "created_at"),
     )
