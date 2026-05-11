@@ -31,3 +31,27 @@ groups:
           summary: "Dead-letter count is increasing"
           runbook: "docs/runbooks/webhook-dead-letter.md"
 
+  - name: casino_bot_games
+    rules:
+      - alert: CasinoBotGameRejectBurst
+        expr: sum(rate(casino_bot_game_round_rejected_total[5m])) > 3
+        for: 10m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "High rate of game engine rejects (>3/s averaged over 5m for 10m)"
+          runbook: "docs/runbooks/game-reject-burst.md"
+
+      - alert: CasinoBotGameRoundLatencyHigh
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(casino_bot_game_round_duration_seconds_bucket[5m])) by (le, game_id)
+          ) > 2
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "p95 game round duration > 2s (per game_id)"
+          runbook: "docs/runbooks/game-round-latency.md"
+

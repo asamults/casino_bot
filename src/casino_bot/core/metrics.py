@@ -8,6 +8,72 @@ from prometheus_client import Counter, Gauge, Histogram
 
 APP_NAMESPACE = "casino_bot"
 
+# Games (Phase 4B) — low-cardinality labels only; record from ``run_game_detailed``.
+game_rounds_total = Counter(
+    f"{APP_NAMESPACE}_game_rounds_total",
+    "Persisted game rounds (first write only; not idempotent replays)",
+    labelnames=("game_id", "status", "outcome"),
+)
+game_round_rejected_total = Counter(
+    f"{APP_NAMESPACE}_game_round_rejected_total",
+    "Game engine rejections before a new round is persisted (GameEngineRejected)",
+    labelnames=("game_id", "code"),
+)
+game_round_duration_seconds = Histogram(
+    f"{APP_NAMESPACE}_game_round_duration_seconds",
+    "Wall time for run_game_detailed (seconds), including idempotent replay",
+    labelnames=("game_id",),
+    buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
+)
+game_token_volume_total = Counter(
+    f"{APP_NAMESPACE}_game_token_volume_total",
+    "Token amounts on newly persisted committed rounds (not replays)",
+    labelnames=("game_id", "direction"),
+)
+
+
+def _committed_outcome_label(details: dict | None) -> str:
+    if not details:
+        return "unknown"
+    o = details.get("outcome")
+    if o in ("win", "lose"):
+        return str(o)
+    return "unknown"
+
+
+def record_game_engine_rejection(
+    *, game_id: str, code: str, duration_seconds: float
+) -> None:
+    game_round_rejected_total.labels(game_id, code).inc()
+    game_round_duration_seconds.labels(game_id).observe(duration_seconds)
+
+
+def record_game_round_completion(
+    *,
+    game_id: str,
+    status: str,
+    details: dict | None,
+    bet_amount: float,
+    payout_delta: float,
+    idempotent_replay: bool,
+    duration_seconds: float,
+) -> None:
+    """Histogram always; counters only on first persistence (not Telegram replay)."""
+    game_round_duration_seconds.labels(game_id).observe(duration_seconds)
+    if idempotent_replay:
+        return
+    if status == "committed":
+        oc = _committed_outcome_label(details)
+        game_rounds_total.labels(game_id, "committed", oc).inc()
+        game_token_volume_total.labels(game_id, "stake").inc(float(bet_amount))
+        if payout_delta > 0:
+            game_token_volume_total.labels(game_id, "payout").inc(float(payout_delta))
+    elif status == "rejected":
+        game_rounds_total.labels(game_id, "rejected", "unknown").inc()
+    elif status == "failed":
+        game_rounds_total.labels(game_id, "failed", "unknown").inc()
+
+
 # HTTP
 http_requests_total = Counter(
     f"{APP_NAMESPACE}_http_requests_total",

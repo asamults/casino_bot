@@ -40,6 +40,7 @@ services:
       - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
       - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./grafana_dashboard.json:/var/lib/grafana/dashboards/casino_bot_baseline.json:ro
+      - ./grafana_games_dashboard.json:/var/lib/grafana/dashboards/casino_bot_games.json:ro
     depends_on:
       - prometheus
     networks:
