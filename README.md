@@ -34,6 +34,7 @@ All **repository artifacts** stay in **English**: README, inline comments, `Make
 - **Production cutover (M7W1)**: `docs/ops/production-cutover-checklist.md`,
   rollback `docs/ops/production-rollback-plan.md`, observability bundle
   `monitoring/docker-compose.observability.yml`
+  (games metrics/dashboard: `docs/ops/game-observability-phase4b.md`)
 
 ## Domain, compliance, and subscriptions
 

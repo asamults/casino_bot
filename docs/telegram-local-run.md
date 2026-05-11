@@ -116,6 +116,8 @@ Open your bot’s chat (the username from BotFather) and try:
 | `/help` | Lists available commands (including **`/status`**, **`/profile`**, **`/admin`**, **`/support`**). |
 | `/me`   | Shows Telegram id plus internal user id if linked (after **`/start`**). |
 | `/balance` | Shows token balance when a **`token_accounts`** row exists; otherwise a **safe message** (`Balance unavailable …`) rather than crashing. |
+| `/flip` | Coin flip game (quick stakes and `/flip <amount>`); subject to cooldown and Telegram rate limits (Phase 4A). |
+| `/rounds` | Last **N** committed **`coin_flip`** rounds for your linked user (UTC lines; **N** from `TELEGRAM_ROUNDS_HISTORY_LIMIT`). |
 | `/status` | Short **liveness vs database readiness** summary (aligned with **`GET /health`** / **`GET /ready`** semantics; no HTTP call to localhost). |
 | `/profile` | Linked account fields only (**internal id**, Telegram id, **active** flag, **created** timestamp). Prompts **`/start`** if not linked. |
 | `/admin` | Static pointer to the **HTTP Admin API** (`/api/v1/admin/`, documented in README); **no admin actions** in Telegram. |
@@ -123,7 +125,24 @@ Open your bot’s chat (the username from BotFather) and try:
 
 **Security note:** Logs record only **command name**, **telegram user id**, and **internal user id** when known — not bot tokens or full webhook/update payloads.
 
-**Scope:** No gameplay, deposits, withdrawals, or other money-moving flows are implemented here.
+Cooldowns and Telegram rate limits are configured via environment (see `.env.example`).
+
+---
+
+## Phase 4A — Idempotency (Telegram game rounds)
+
+The ledger table **`game_rounds`** enforces uniqueness on `(user_id, game_id, idempotency_key)` so the same Telegram delivery cannot debit twice.
+
+| Surface | Idempotency key |
+| --- | --- |
+| `/flip` with args | `tg:{telegram_user_id}:cmd:{update_id}` |
+| Inline stake button | `tg:{telegram_user_id}:cb:{callback_query.id}` |
+
+- **Duplicate tap / Telegram retry:** the second request loads the **same row** and returns the same outcome. The bot may show “Already processed — duplicate tap.”
+- **Cooldown vs replay:** If a row already exists for that key, **cooldown is skipped** so replays never look like a new round.
+- **Stale callback:** old inline buttons still carry a fixed `callback_query.id`; if that key was never completed, behavior follows normal validation (balance, cooldown, etc.). Same id always maps to the same stored round.
+
+HTTP rate limiting (`InMemoryRateLimitMiddleware`) is unrelated; Telegram uses in-process sliding windows (`TELEGRAM_FLIP_*_RATE_LIMIT_PER_MINUTE`).
 
 ---
 
