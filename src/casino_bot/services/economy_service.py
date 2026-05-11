@@ -62,6 +62,11 @@ def adjust_user_tokens(
     if user is None:
         raise ValueError("User not found")
 
+    # Test sessions (and some callers) may run with autoflush disabled; ensure
+    # pending inserts (e.g. TokenAccount created alongside User) are visible to
+    # subsequent SELECTs and we don't create duplicate token accounts.
+    db.flush()
+
     q = db.query(TokenAccount).filter(TokenAccount.user_id == user_id)
     bind = db.get_bind()
     if bind.dialect.name == "postgresql":
