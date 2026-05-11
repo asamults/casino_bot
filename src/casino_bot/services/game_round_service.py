@@ -34,10 +34,14 @@ def execute_game_round(
     bet_amount: float,
     actor: str,
     details: dict[str, Any] | None = None,
+    payout_delta: float | None = None,
 ) -> GameRound:
     """Execute one game round atomically with the token ledger.
 
     Idempotency scope is (user_id, game_id, idempotency_key).
+
+    If ``payout_delta`` is None (Phase 1 default), the ledger delta is ``-bet_amount``
+    (stake debit only). If set (Phase 2+), that value is applied instead.
     """
 
     existing = (
@@ -62,7 +66,12 @@ def execute_game_round(
         raise ValueError("bet_amount exceeds Phase 1 maximum")
 
     round_id = str(uuid.uuid4())
-    attempted_delta = -float(bet_amount)  # Phase 1: stake debit only.
+    if payout_delta is None:
+        attempted_delta = -float(bet_amount)  # Phase 1: stake debit only.
+    else:
+        if math.isnan(float(payout_delta)) or not math.isfinite(float(payout_delta)):
+            raise ValueError("payout_delta must be finite")
+        attempted_delta = float(payout_delta)
     reason = f"game_round:{game_id}:{round_id}"
 
     try:

@@ -181,6 +181,13 @@ class Settings(BaseSettings):
     DRILL_FORCE_500_ON_PATH: str = ""
     DRILL_SUPERADMIN_TOKEN: str = ""
 
+    # Phase 2 — game engine (see src/casino_bot/games/).
+    # JSON list in env (shell-safe): GAMES_ENABLED='["coin_flip"]'
+    GAMES_ENABLED: list[str] = ["coin_flip"]
+    COIN_FLIP_MIN_BET: int = 1
+    COIN_FLIP_MAX_BET: int = 100
+    COIN_FLIP_COOLDOWN_SECONDS: int = 0
+
     @field_validator(
         "SECRET_KEY",
         "DATABASE_URL",
@@ -201,6 +208,41 @@ class Settings(BaseSettings):
         if not v or "\\n" not in v:
             return v
         return v.replace("\\n", "\n")
+
+    @field_validator("GAMES_ENABLED", mode="before")
+    @classmethod
+    def games_enabled_json_list(cls, value):
+        if value is None:
+            return ["coin_flip"]
+        if isinstance(value, list):
+            return [str(x).strip() for x in value if str(x).strip()]
+        if isinstance(value, str):
+            stripped = value.strip()
+            try:
+                parsed = json.loads(stripped)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    "GAMES_ENABLED must be a JSON list of strings"
+                ) from exc
+            if not isinstance(parsed, list):
+                raise ValueError("GAMES_ENABLED must be a JSON list of strings")
+            return [str(x).strip() for x in parsed if str(x).strip()]
+        raise ValueError("GAMES_ENABLED must be a JSON list of strings")
+
+    @field_validator("COIN_FLIP_MIN_BET", "COIN_FLIP_MAX_BET")
+    @classmethod
+    def coin_flip_bet_bounds_positive(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("coin flip bet limits must be >= 1")
+        return v
+
+    @model_validator(mode="after")
+    def coin_flip_max_ge_min(self) -> Settings:
+        if self.COIN_FLIP_MAX_BET < self.COIN_FLIP_MIN_BET:
+            raise ValueError("COIN_FLIP_MAX_BET must be >= COIN_FLIP_MIN_BET")
+        if self.COIN_FLIP_COOLDOWN_SECONDS < 0:
+            raise ValueError("COIN_FLIP_COOLDOWN_SECONDS must be >= 0")
+        return self
 
     @field_validator("CORS_ALLOW_ORIGINS", mode="before")
     @classmethod
