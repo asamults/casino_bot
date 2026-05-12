@@ -8,6 +8,17 @@ from typing import Any, Protocol, runtime_checkable
 
 
 @dataclass(frozen=True)
+class GameMeta:
+    """Stable catalog row for enabled games (Phase 5 — Telegram /help, /games)."""
+
+    game_id: str
+    title: str
+    description: str
+    min_bet: int
+    max_bet: int
+
+
+@dataclass(frozen=True)
 class GameInput:
     """Immutable input for one game resolution (no balance side effects)."""
 
@@ -37,3 +48,7 @@ class Game(Protocol):
     def compute_outcome(
         self, inp: GameInput, rng: secrets.SystemRandom
     ) -> GameResult: ...
+
+    def catalog_meta(self, settings: Any) -> GameMeta:
+        """User-facing listing; bet bounds must match ``run_game`` validation."""
+        ...

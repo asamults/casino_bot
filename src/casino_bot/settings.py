@@ -191,6 +191,12 @@ class Settings(BaseSettings):
     # default unless this flag is true (explicit infinite-speed flip in prod).
     COIN_FLIP_ALLOW_ZERO_COOLDOWN_IN_PRODUCTION: bool = False
 
+    # Phase 5 — second game (bonus wheel); stake/cooldown separate from coin flip.
+    BONUS_WHEEL_MIN_BET: int = 1
+    BONUS_WHEEL_MAX_BET: int = 100
+    BONUS_WHEEL_COOLDOWN_SECONDS: int = 0
+    BONUS_WHEEL_ALLOW_ZERO_COOLDOWN_IN_PRODUCTION: bool = False
+
     # Telegram — Phase 4A guardrails (in-process sliding window; 0 = disable limit)
     TELEGRAM_FLIP_PROMPT_RATE_LIMIT_PER_MINUTE: int = 30
     TELEGRAM_FLIP_ACTION_RATE_LIMIT_PER_MINUTE: int = 60
@@ -244,12 +250,23 @@ class Settings(BaseSettings):
             raise ValueError("coin flip bet limits must be >= 1")
         return v
 
+    @field_validator("BONUS_WHEEL_MIN_BET", "BONUS_WHEEL_MAX_BET")
+    @classmethod
+    def bonus_wheel_bet_bounds_positive(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("bonus wheel bet limits must be >= 1")
+        return v
+
     @model_validator(mode="after")
-    def coin_flip_max_ge_min(self) -> Settings:
+    def game_stake_settings_consistent(self) -> Settings:
         if self.COIN_FLIP_MAX_BET < self.COIN_FLIP_MIN_BET:
             raise ValueError("COIN_FLIP_MAX_BET must be >= COIN_FLIP_MIN_BET")
         if self.COIN_FLIP_COOLDOWN_SECONDS < 0:
             raise ValueError("COIN_FLIP_COOLDOWN_SECONDS must be >= 0")
+        if self.BONUS_WHEEL_MAX_BET < self.BONUS_WHEEL_MIN_BET:
+            raise ValueError("BONUS_WHEEL_MAX_BET must be >= BONUS_WHEEL_MIN_BET")
+        if self.BONUS_WHEEL_COOLDOWN_SECONDS < 0:
+            raise ValueError("BONUS_WHEEL_COOLDOWN_SECONDS must be >= 0")
         return self
 
     @field_validator(
@@ -283,6 +300,17 @@ class Settings(BaseSettings):
         if raw > 0:
             return raw
         if self.COIN_FLIP_ALLOW_ZERO_COOLDOWN_IN_PRODUCTION:
+            return 0
+        return 3
+
+    def effective_bonus_wheel_cooldown_seconds(self) -> int:
+        """Cooldown for bonus wheel rounds (same production default semantics as coin flip)."""
+        raw = self.BONUS_WHEEL_COOLDOWN_SECONDS
+        if self.ENVIRONMENT != "production":
+            return raw
+        if raw > 0:
+            return raw
+        if self.BONUS_WHEEL_ALLOW_ZERO_COOLDOWN_IN_PRODUCTION:
             return 0
         return 3
 

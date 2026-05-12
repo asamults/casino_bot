@@ -4,14 +4,41 @@ from __future__ import annotations
 
 from typing import Any
 
+from casino_bot.games.types import GameMeta
+
 FLIP_HELP_LINE = (
     "/flip — Coin flip (quick-stake buttons only show amounts you can afford, "
     "or /flip <amount> with a whole number)"
 )
 
-ROUNDS_HELP_LINE = "/rounds — Recent committed coin flip rounds (UTC, capped)"
+ROUNDS_HELP_LINE = "/rounds — Recent committed rounds for enabled games (UTC, capped)"
+
+GAMES_HELP_LINE = "/games — List enabled games and stake limits"
+
+WHEEL_HELP_LINE = (
+    "/wheel — Bonus wheel (weighted tiers; quick buttons or /wheel <whole number>)"
+)
 
 AUDIO_STUB_LINE = "Audio prize delivery in Telegram is not wired yet — text only."
+
+
+def games_catalog_message(metas: list[GameMeta]) -> str:
+    if not metas:
+        return "No games are enabled on this bot deployment."
+    lines = [
+        "Games you can play (also see /help):",
+        "",
+    ]
+    for m in metas:
+        lines.append(f"• {m.title} — {m.description}")
+        lines.append(f"  Stake: {m.min_bet}–{m.max_bet} tokens.")
+        if m.game_id == "coin_flip":
+            lines.append("  Play: /flip")
+        elif m.game_id == "bonus_wheel":
+            lines.append("  Play: /wheel")
+        lines.append("")
+    lines.append("Use /rounds for your recent committed rounds.")
+    return "\n".join(lines).rstrip()
 
 
 def flip_keyboard_caption() -> str:
@@ -110,5 +137,57 @@ def rounds_history_header(*, limit: int) -> str:
     return f"Last {limit} committed round(s), UTC (newest first):"
 
 
+def wheel_keyboard_caption() -> str:
+    return (
+        "Bonus wheel: one spin, weighted tiers (bust / bronze / silver / gold).\n"
+        "Tap a quick stake or send /wheel <whole number> within server min/max.\n"
+        f"{AUDIO_STUB_LINE}"
+    )
+
+
+def wheel_no_quick_stakes_message() -> str:
+    return (
+        "You do not have enough tokens for any of the quick stakes (1 / 5 / 10). "
+        "Try /balance, or /wheel <amount> once you have enough for that stake."
+    )
+
+
+def wheel_usage_hint() -> str:
+    return (
+        "Usage: /wheel <whole number> (tokens), or use the quick buttons.\n"
+        "Example: /wheel 10"
+    )
+
+
+_WHEEL_TIER_LABELS = {
+    "bust": "Bust (lost stake)",
+    "bronze": "Bronze (+0.5× stake)",
+    "silver": "Silver (+1× stake)",
+    "gold": "Gold (+2.5× stake)",
+}
+
+
+def wheel_result_compact(
+    *,
+    stake_tokens: int,
+    outcome: str,
+    payout_delta: float,
+    balance_line: str,
+    idempotent_replay: bool,
+) -> str:
+    tier = _WHEEL_TIER_LABELS.get(outcome, outcome)
+    lines = [
+        "Bonus wheel",
+        f"Stake: {stake_tokens} tokens",
+        f"Tier: {tier}",
+        f"Net change: {payout_delta:g} tokens",
+        balance_line,
+    ]
+    body = "\n".join(lines)
+    if idempotent_replay:
+        body += "\n\n(Already processed — duplicate tap.)"
+    return body
+
+
 def rounds_empty_message() -> str:
-    return "No committed coin flip rounds yet. Play with /flip."
+    return "No committed rounds yet for enabled games. Try /games, /flip, or /wheel."

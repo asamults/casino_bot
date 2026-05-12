@@ -132,6 +132,10 @@ From the **repository root** (the `casino_bot` project directory, not a literal 
 
 Tests: `pytest` (`pyproject.toml` sets `pythonpath = ["src"]`).
 
+### Game catalog (Phase 5)
+
+Multiple built-in games share the same ledger and idempotency model. Enable games with `GAMES_ENABLED` (JSON list, e.g. `'["coin_flip","bonus_wheel"]'`). See [docs/roadmap/game-catalog-phase5.md](docs/roadmap/game-catalog-phase5.md) for how to add another game and the operator checklist.
+
 ### Dependency hygiene (Week 1)
 
 - **Single source of truth**: `requirements.txt` is installed the same way in **Docker** (`Dockerfile`), **CI** (GitHub Actions), and local dev.

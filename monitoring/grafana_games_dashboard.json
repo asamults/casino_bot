@@ -27,11 +27,11 @@
       "id": 11,
       "targets": [
         {
-          "expr": "sum(rate(casino_bot_game_rounds_total{game_id=~\"$game_id\",status=\"committed\",outcome=\"win\"}[$__rate_interval])) / sum(rate(casino_bot_game_rounds_total{game_id=~\"$game_id\",status=\"committed\"}[$__rate_interval]))",
+          "expr": "sum(rate(casino_bot_game_rounds_total{game_id=\"coin_flip\",status=\"committed\",outcome=\"win\"}[$__rate_interval])) / sum(rate(casino_bot_game_rounds_total{game_id=\"coin_flip\",status=\"committed\"}[$__rate_interval]))",
           "legendFormat": "win_rate"
         }
       ],
-      "title": "Committed win rate (ratio)",
+      "title": "Coin flip — committed win rate (win / all committed)",
       "type": "timeseries"
     },
     {
@@ -76,7 +76,7 @@
   ],
   "schemaVersion": 39,
   "style": "dark",
-  "tags": ["casino_bot", "games", "phase4b"],
+  "tags": ["casino_bot", "games", "phase4b", "phase5"],
   "templating": {
     "list": [
       {

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from casino_bot.games.types import Game
+from casino_bot.games.types import Game, GameMeta
 
 _GAMES: dict[str, Game] = {}
 
@@ -23,10 +23,22 @@ def list_games() -> list[Game]:
     return [g for gid, g in _GAMES.items() if gid in enabled]
 
 
+def list_enabled_games() -> list[GameMeta]:
+    """``GAMES_ENABLED`` ∩ registered games, with catalog copy and current bet bounds."""
+    from casino_bot.settings import settings as app_settings
+
+    return sorted(
+        (g.catalog_meta(app_settings) for g in list_games()),
+        key=lambda m: m.game_id,
+    )
+
+
 def _bootstrap() -> None:
+    from casino_bot.games.bonus_wheel import BonusWheelGame
     from casino_bot.games.coin_flip import CoinFlipGame
 
     register(CoinFlipGame())
+    register(BonusWheelGame())
 
 
 _bootstrap()

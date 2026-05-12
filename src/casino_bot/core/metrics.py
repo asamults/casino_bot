@@ -36,7 +36,7 @@ def _committed_outcome_label(details: dict | None) -> str:
     if not details:
         return "unknown"
     o = details.get("outcome")
-    if o in ("win", "lose"):
+    if o in ("win", "lose", "bust", "bronze", "silver", "gold"):
         return str(o)
     return "unknown"
 

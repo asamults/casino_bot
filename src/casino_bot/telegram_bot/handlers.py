@@ -18,6 +18,8 @@ from telegram.ext import ContextTypes
 
 from casino_bot.db.models import GameRound, TokenAccount
 from casino_bot.db.session import SessionLocal, check_database_ready
+from casino_bot.games.bonus_wheel import BONUS_WHEEL_GAME_ID
+from casino_bot.games.registry import list_enabled_games
 from casino_bot.games.service import GameEngineRejected, run_game_detailed
 from casino_bot.settings import settings
 from casino_bot.telegram_bot.flip_idempotency import (
@@ -46,18 +48,24 @@ from casino_bot.telegram_bot.user_ops import (
 _log = logging.getLogger("casino_bot.telegram")
 
 _FLIP_CALLBACK_PREFIX = "flip:"
+_WHEEL_CALLBACK_PREFIX = "wheel:"
 
 
 @dataclass(frozen=True)
-class _FlipSnapshot:
-    """ORM-safe snapshot of a flip round after commit (session may be closed)."""
+class _TelegramGameSnapshot:
+    """ORM-safe snapshot of a game round after commit (session may be closed)."""
 
+    game_id: str
     status: str
     details: dict[str, Any] | None
     balance_line: str
     user_id: int
     bet_amount: int
     idempotent_replay: bool
+
+
+# Back-compat for tests importing the old Phase 4A names.
+_FlipSnapshot = _TelegramGameSnapshot
 
 
 def _idem_log_fragment(idempotency_key: str) -> str:
@@ -255,39 +263,65 @@ async def cmd_support(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await msg.reply_text(body)
 
 
-def _flip_reply_from_snapshot(snap: _FlipSnapshot) -> str:
-    if snap.status == "rejected":
-        body = game_texts.flip_rejected_round_user_message(snap.details)
-        if snap.idempotent_replay:
-            body += "\n\n(Already processed — duplicate tap.)"
-        return body
-    if snap.status != "committed":
-        return game_texts.flip_unexpected_error_message()
-    details = snap.details or {}
-    outcome = details.get("outcome")
-    if outcome not in ("win", "lose"):
-        return game_texts.flip_unexpected_error_message()
-    return game_texts.flip_result_compact(
-        stake_tokens=snap.bet_amount,
-        outcome=outcome,
-        balance_line=snap.balance_line,
-        idempotent_replay=snap.idempotent_replay,
-    )
+def _telegram_game_reply_from_snapshot(snap: _TelegramGameSnapshot) -> str:
+    if snap.game_id == "coin_flip":
+        if snap.status == "rejected":
+            body = game_texts.flip_rejected_round_user_message(snap.details)
+            if snap.idempotent_replay:
+                body += "\n\n(Already processed — duplicate tap.)"
+            return body
+        if snap.status != "committed":
+            return game_texts.flip_unexpected_error_message()
+        details = snap.details or {}
+        outcome = details.get("outcome")
+        if outcome not in ("win", "lose"):
+            return game_texts.flip_unexpected_error_message()
+        return game_texts.flip_result_compact(
+            stake_tokens=snap.bet_amount,
+            outcome=outcome,
+            balance_line=snap.balance_line,
+            idempotent_replay=snap.idempotent_replay,
+        )
+    if snap.game_id == BONUS_WHEEL_GAME_ID:
+        if snap.status == "rejected":
+            body = game_texts.flip_rejected_round_user_message(snap.details)
+            if snap.idempotent_replay:
+                body += "\n\n(Already processed — duplicate tap.)"
+            return body
+        if snap.status != "committed":
+            return game_texts.flip_unexpected_error_message()
+        details = snap.details or {}
+        outcome = details.get("outcome")
+        if outcome not in ("bust", "bronze", "silver", "gold"):
+            return game_texts.flip_unexpected_error_message()
+        payout_delta = float(details.get("payout_delta", 0.0))
+        return game_texts.wheel_result_compact(
+            stake_tokens=snap.bet_amount,
+            outcome=str(outcome),
+            payout_delta=payout_delta,
+            balance_line=snap.balance_line,
+            idempotent_replay=snap.idempotent_replay,
+        )
+    return game_texts.flip_unexpected_error_message()
 
 
-def _flip_work(
+_flip_reply_from_snapshot = _telegram_game_reply_from_snapshot
+
+
+def _telegram_game_work(
     *,
     telegram_user_id: int,
     bet_amount: int,
     idempotency_key: str,
-) -> _FlipSnapshot:
+    game_id: str,
+) -> _TelegramGameSnapshot:
     db = SessionLocal()
     try:
         user = ensure_telegram_user(db, telegram_user_id=telegram_user_id)
         gr, idempotent_replay = run_game_detailed(
             db,
             user_id=user.id,
-            game_id="coin_flip",
+            game_id=game_id,
             bet_amount=bet_amount,
             idempotency_key=idempotency_key,
             actor="telegram_bot",
@@ -296,7 +330,8 @@ def _flip_work(
         db.commit()
         raw = gr.details_json
         details_copy = dict(raw) if isinstance(raw, dict) else None
-        return _FlipSnapshot(
+        return _TelegramGameSnapshot(
+            game_id=game_id,
             status=str(gr.status),
             details=details_copy,
             balance_line=balance_line,
@@ -314,24 +349,41 @@ def _flip_work(
         db.close()
 
 
-def _flip_quick_stake_amounts(*, balance: float) -> list[int]:
+def _flip_work(
+    *,
+    telegram_user_id: int,
+    bet_amount: int,
+    idempotency_key: str,
+) -> _TelegramGameSnapshot:
+    return _telegram_game_work(
+        telegram_user_id=telegram_user_id,
+        bet_amount=bet_amount,
+        idempotency_key=idempotency_key,
+        game_id="coin_flip",
+    )
+
+
+def _quick_stake_amounts(*, game_id: str, balance: float) -> list[int]:
     presets = (1, 5, 10)
-    return [
-        a
-        for a in presets
-        if settings.COIN_FLIP_MIN_BET <= a <= settings.COIN_FLIP_MAX_BET
-        and balance + 1e-9 >= float(a)
-    ]
+    if game_id == "coin_flip":
+        lo, hi = settings.COIN_FLIP_MIN_BET, settings.COIN_FLIP_MAX_BET
+    elif game_id == BONUS_WHEEL_GAME_ID:
+        lo, hi = settings.BONUS_WHEEL_MIN_BET, settings.BONUS_WHEEL_MAX_BET
+    else:
+        return []
+    return [a for a in presets if lo <= a <= hi and balance + 1e-9 >= float(a)]
 
 
-def _flip_keyboard_prompt_work(telegram_user_id: int) -> tuple[list[int], str]:
+def _game_keyboard_prompt_work(
+    telegram_user_id: int, *, game_id: str
+) -> tuple[list[int], str]:
     db = SessionLocal()
     try:
         user = ensure_telegram_user(db, telegram_user_id=telegram_user_id)
         acc = db.query(TokenAccount).filter(TokenAccount.user_id == user.id).first()
         bal = float(acc.balance) if acc is not None else 0.0
         db.commit()
-        amounts = _flip_quick_stake_amounts(balance=bal)
+        amounts = _quick_stake_amounts(game_id=game_id, balance=bal)
         line = resolve_balance_reply(db, user_id=user.id)
         return amounts, line
     except Exception:
@@ -339,6 +391,14 @@ def _flip_keyboard_prompt_work(telegram_user_id: int) -> tuple[list[int], str]:
         raise
     finally:
         db.close()
+
+
+def _flip_keyboard_prompt_work(telegram_user_id: int) -> tuple[list[int], str]:
+    return _game_keyboard_prompt_work(telegram_user_id, game_id="coin_flip")
+
+
+def _wheel_keyboard_prompt_work(telegram_user_id: int) -> tuple[list[int], str]:
+    return _game_keyboard_prompt_work(telegram_user_id, game_id=BONUS_WHEEL_GAME_ID)
 
 
 def _format_round_ts_utc(dt: datetime | None) -> str:
@@ -352,13 +412,16 @@ def _format_round_ts_utc(dt: datetime | None) -> str:
 
 
 def rounds_history_message(db: Session, *, user_id: int) -> str:
-    """Last committed coin_flip rounds for one internal ``user_id`` (tests may pass SQLite)."""
+    """Last committed rounds for enabled ``game_id`` values (tests may pass SQLite)."""
     limit = settings.TELEGRAM_ROUNDS_HISTORY_LIMIT
+    enabled = list(settings.GAMES_ENABLED)
+    if not enabled:
+        return game_texts.rounds_empty_message()
     rows = (
         db.query(GameRound)
         .filter(
             GameRound.user_id == user_id,
-            GameRound.game_id == "coin_flip",
+            GameRound.game_id.in_(enabled),
             GameRound.status == "committed",
         )
         .order_by(desc(GameRound.committed_at))
@@ -371,10 +434,11 @@ def rounds_history_message(db: Session, *, user_id: int) -> str:
     for gr in rows:
         details = gr.details_json if isinstance(gr.details_json, dict) else {}
         outcome = details.get("outcome", "?")
+        gid = gr.game_id or "?"
         rid = (gr.round_id or "")[:8]
         ts = _format_round_ts_utc(gr.committed_at)
         lines.append(
-            f"{ts} | bet={gr.bet_amount:g} | {outcome} | Δ={gr.payout_delta:g} | #{rid}"
+            f"{ts} | {gid} | bet={gr.bet_amount:g} | {outcome} | Δ={gr.payout_delta:g} | #{rid}"
         )
     return "\n".join(lines)
 
@@ -493,7 +557,7 @@ async def cmd_flip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     idem = command_idempotency_key(telegram_user_id=tid, update_id=update.update_id)
     idem_h = _idem_log_fragment(idem)
 
-    def work() -> _FlipSnapshot:
+    def work() -> _TelegramGameSnapshot:
         return _flip_work(
             telegram_user_id=tid,
             bet_amount=bet_amount,
@@ -581,7 +645,7 @@ async def callback_flip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     )
     idem_h = _idem_log_fragment(idem)
 
-    def work() -> _FlipSnapshot:
+    def work() -> _TelegramGameSnapshot:
         return _flip_work(
             telegram_user_id=tid,
             bet_amount=bet_amount,
@@ -629,6 +693,264 @@ async def callback_flip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "idem_hash=%s outcome=%s status=%s idempotent_replay=%s",
         tid,
         snap.user_id,
+        bet_amount,
+        idem_h,
+        _flip_log_outcome(snap.details, status=snap.status),
+        snap.status,
+        snap.idempotent_replay,
+    )
+    try:
+        await query.edit_message_text(body)
+    except BadRequest:
+        await query.message.reply_text(body)
+
+
+async def cmd_games(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    msg = update.effective_message
+    tid = _telegram_user_id(update)
+    if msg is None:
+        return
+    uid_log = "-"
+    if tid is not None:
+        uid_log = await asyncio.to_thread(_lookup_user_id_for_log, tid)
+
+    def catalog() -> str:
+        return game_texts.games_catalog_message(list_enabled_games())
+
+    try:
+        body = await asyncio.to_thread(catalog)
+    except Exception:
+        _log.exception("telegram_games_failed telegram_user_id=%s", tid)
+        await msg.reply_text(game_texts.flip_unexpected_error_message())
+        return
+    _log.info(
+        "telegram_command command=games telegram_user_id=%s user_id=%s",
+        tid if tid is not None else "-",
+        uid_log,
+    )
+    await msg.reply_text(body)
+
+
+async def cmd_wheel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    msg = update.effective_message
+    tid = _telegram_user_id(update)
+    if msg is None or tid is None:
+        return
+
+    if BONUS_WHEEL_GAME_ID not in settings.GAMES_ENABLED:
+        await msg.reply_text(
+            game_texts.game_engine_rejected_user_message("game_disabled")
+        )
+        return
+
+    if not context.args:
+        if not allow_flip_prompt(tid):
+            _log.warning(
+                "telegram_wheel rate_limited telegram_user_id=%s scope=wheel_prompt",
+                tid,
+            )
+            await msg.reply_text(game_texts.TELEGRAM_RATE_LIMITED_MESSAGE)
+            return
+        try:
+            quick_amounts, balance_line = await asyncio.to_thread(
+                _wheel_keyboard_prompt_work, tid
+            )
+        except Exception:
+            _log.exception(
+                "telegram_wheel_prompt_failed telegram_user_id=%s update_id=%s",
+                tid,
+                update.update_id,
+            )
+            await msg.reply_text(game_texts.flip_unexpected_error_message())
+            return
+
+        caption = game_texts.wheel_keyboard_caption()
+        if not quick_amounts:
+            body = f"{caption}\n\n{game_texts.wheel_no_quick_stakes_message()}\n\n{balance_line}"
+            await msg.reply_text(body)
+        else:
+            row = [
+                InlineKeyboardButton(
+                    str(a), callback_data=f"{_WHEEL_CALLBACK_PREFIX}{a}"
+                )
+                for a in quick_amounts
+            ]
+            keyboard = InlineKeyboardMarkup([row])
+            body = f"{caption}\n\n{balance_line}"
+            await msg.reply_text(body, reply_markup=keyboard)
+        _log.info(
+            "telegram_wheel_prompt telegram_user_id=%s update_id=%s quick_stakes=%s",
+            tid,
+            update.update_id,
+            ",".join(str(a) for a in quick_amounts) if quick_amounts else "-",
+        )
+        return
+
+    try:
+        bet_amount = int(context.args[0])
+    except (TypeError, ValueError):
+        await msg.reply_text(game_texts.wheel_usage_hint())
+        return
+
+    if not allow_flip_action(tid):
+        _log.warning(
+            "telegram_wheel rate_limited telegram_user_id=%s scope=wheel_command_bet",
+            tid,
+        )
+        await msg.reply_text(game_texts.TELEGRAM_RATE_LIMITED_MESSAGE)
+        return
+
+    idem = command_idempotency_key(telegram_user_id=tid, update_id=update.update_id)
+    idem_h = _idem_log_fragment(idem)
+
+    def work() -> _TelegramGameSnapshot:
+        return _telegram_game_work(
+            telegram_user_id=tid,
+            bet_amount=bet_amount,
+            idempotency_key=idem,
+            game_id=BONUS_WHEEL_GAME_ID,
+        )
+
+    try:
+        snap = await asyncio.to_thread(work)
+    except GameEngineRejected as exc:
+        uid_log = await asyncio.to_thread(_lookup_user_id_for_log, tid)
+        _log_flip_engine_reject(
+            command="wheel",
+            telegram_user_id=tid,
+            user_id_log=uid_log,
+            bet_amount=bet_amount,
+            idem_h=idem_h,
+            exc=exc,
+        )
+        await msg.reply_text(
+            game_texts.game_engine_rejected_user_message(
+                exc.code,
+                cooldown_remaining_seconds=exc.cooldown_remaining_seconds,
+            )
+        )
+        return
+    except Exception:
+        _log.exception(
+            "telegram_wheel_failed command=wheel telegram_user_id=%s bet=%s idem_hash=%s",
+            tid,
+            bet_amount,
+            idem_h,
+        )
+        await msg.reply_text(game_texts.flip_unexpected_error_message())
+        return
+
+    body = _telegram_game_reply_from_snapshot(snap)
+    _log.info(
+        "telegram_wheel command=wheel telegram_user_id=%s user_id=%s game_id=%s bet=%s "
+        "idem_hash=%s outcome=%s status=%s idempotent_replay=%s",
+        tid,
+        snap.user_id,
+        BONUS_WHEEL_GAME_ID,
+        bet_amount,
+        idem_h,
+        _flip_log_outcome(snap.details, status=snap.status),
+        snap.status,
+        snap.idempotent_replay,
+    )
+    await msg.reply_text(body)
+
+
+async def callback_wheel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or query.message is None:
+        return
+    tid = _telegram_user_id(update)
+    if tid is None:
+        return
+
+    data = (query.data or "").strip()
+    if not data.startswith(_WHEEL_CALLBACK_PREFIX):
+        return
+
+    try:
+        bet_amount = int(data.split(":", 1)[1])
+    except (IndexError, ValueError):
+        await query.answer()
+        return
+
+    await query.answer()
+
+    if BONUS_WHEEL_GAME_ID not in settings.GAMES_ENABLED:
+        text = game_texts.game_engine_rejected_user_message("game_disabled")
+        try:
+            await query.edit_message_text(text)
+        except BadRequest:
+            await query.message.reply_text(text)
+        return
+
+    if not allow_flip_action(tid):
+        _log.warning(
+            "telegram_wheel rate_limited telegram_user_id=%s scope=wheel_callback",
+            tid,
+        )
+        text = game_texts.TELEGRAM_RATE_LIMITED_MESSAGE
+        try:
+            await query.edit_message_text(text)
+        except BadRequest:
+            await query.message.reply_text(text)
+        return
+
+    idem = callback_idempotency_key(
+        telegram_user_id=tid, callback_query_id=str(query.id)
+    )
+    idem_h = _idem_log_fragment(idem)
+
+    def work() -> _TelegramGameSnapshot:
+        return _telegram_game_work(
+            telegram_user_id=tid,
+            bet_amount=bet_amount,
+            idempotency_key=idem,
+            game_id=BONUS_WHEEL_GAME_ID,
+        )
+
+    try:
+        snap = await asyncio.to_thread(work)
+    except GameEngineRejected as exc:
+        uid_log = await asyncio.to_thread(_lookup_user_id_for_log, tid)
+        _log_flip_engine_reject(
+            command="wheel_callback",
+            telegram_user_id=tid,
+            user_id_log=uid_log,
+            bet_amount=bet_amount,
+            idem_h=idem_h,
+            exc=exc,
+        )
+        text = game_texts.game_engine_rejected_user_message(
+            exc.code,
+            cooldown_remaining_seconds=exc.cooldown_remaining_seconds,
+        )
+        try:
+            await query.edit_message_text(text)
+        except BadRequest:
+            await query.message.reply_text(text)
+        return
+    except Exception:
+        _log.exception(
+            "telegram_wheel_failed command=wheel_callback telegram_user_id=%s bet=%s idem_hash=%s",
+            tid,
+            bet_amount,
+            idem_h,
+        )
+        text = game_texts.flip_unexpected_error_message()
+        try:
+            await query.edit_message_text(text)
+        except BadRequest:
+            await query.message.reply_text(text)
+        return
+
+    body = _telegram_game_reply_from_snapshot(snap)
+    _log.info(
+        "telegram_wheel command=wheel_callback telegram_user_id=%s user_id=%s game_id=%s bet=%s "
+        "idem_hash=%s outcome=%s status=%s idempotent_replay=%s",
+        tid,
+        snap.user_id,
+        BONUS_WHEEL_GAME_ID,
         bet_amount,
         idem_h,
         _flip_log_outcome(snap.details, status=snap.status),

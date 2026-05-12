@@ -15,6 +15,7 @@ from casino_bot.core.metrics import (
     record_game_round_completion,
 )
 from casino_bot.db.models import GameRound, TokenAccount
+from casino_bot.games import policy as game_policy
 from casino_bot.games import registry as game_registry
 from casino_bot.games.rng import new_rng
 from casino_bot.games.types import GameInput
@@ -60,16 +61,17 @@ def _run_game_detailed_inner(
     if game_id not in app_settings.GAMES_ENABLED:
         raise GameEngineRejected("game_disabled", f"Game not enabled: {game_id!r}")
 
-    if game_id == "coin_flip":
-        if bet_amount < app_settings.COIN_FLIP_MIN_BET:
+    if game_policy.game_has_stake_policy(game_id):
+        lo, hi = game_policy.min_max_bet(game_id, app_settings)
+        if bet_amount < lo:
             raise GameEngineRejected(
                 "bet_below_min",
-                f"Bet {bet_amount} below minimum {app_settings.COIN_FLIP_MIN_BET}",
+                f"Bet {bet_amount} below minimum {lo}",
             )
-        if bet_amount > app_settings.COIN_FLIP_MAX_BET:
+        if bet_amount > hi:
             raise GameEngineRejected(
                 "bet_above_max",
-                f"Bet {bet_amount} above maximum {app_settings.COIN_FLIP_MAX_BET}",
+                f"Bet {bet_amount} above maximum {hi}",
             )
 
     existing = (
@@ -84,8 +86,8 @@ def _run_game_detailed_inner(
     if existing is not None:
         return existing, True
 
-    if game_id == "coin_flip":
-        cooldown_sec = app_settings.effective_coin_flip_cooldown_seconds()
+    if game_policy.game_has_stake_policy(game_id):
+        cooldown_sec = game_policy.effective_cooldown_seconds(game_id, app_settings)
         if cooldown_sec > 0:
             last = (
                 db.query(GameRound)
@@ -105,7 +107,7 @@ def _run_game_detailed_inner(
                     secs = max(1, int(math.ceil(remaining)))
                     raise GameEngineRejected(
                         "cooldown_active",
-                        "Coin flip cooldown not elapsed",
+                        "Game cooldown not elapsed",
                         cooldown_remaining_seconds=secs,
                     )
 

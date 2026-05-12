@@ -187,3 +187,41 @@ def test_metrics_engine_rejection_increments_rejected_total(
         {"game_id": "coin_flip", "code": "insufficient_balance"},
     )
     assert after == before + 1
+
+
+def test_metrics_bonus_wheel_committed_bust_outcome(
+    sqlite_session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("casino_bot.games.service.new_rng", lambda: _FakeRng(0.0))
+    cfg = Settings(_env_file=None, GAMES_ENABLED=["bonus_wheel"])
+    monkeypatch.setattr("casino_bot.settings.settings", cfg)
+
+    before = _labeled_counter_value(
+        "casino_bot_game_rounds_total",
+        {
+            "game_id": "bonus_wheel",
+            "status": "committed",
+            "outcome": "bust",
+        },
+    )
+    user = ensure_telegram_user(sqlite_session, telegram_user_id=93004)
+    _fund(sqlite_session, user_id=user.id, amount=50.0)
+    sqlite_session.commit()
+    run_game(
+        sqlite_session,
+        user_id=user.id,
+        game_id="bonus_wheel",
+        bet_amount=5,
+        idempotency_key="bw-met",
+        actor="tests",
+    )
+    sqlite_session.commit()
+    after = _labeled_counter_value(
+        "casino_bot_game_rounds_total",
+        {
+            "game_id": "bonus_wheel",
+            "status": "committed",
+            "outcome": "bust",
+        },
+    )
+    assert after == before + 1

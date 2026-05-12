@@ -211,7 +211,16 @@ def test_support_reply_with_text_and_url() -> None:
 
 def test_help_message_lists_new_commands() -> None:
     body = help_message()
-    for cmd in ("/flip", "/rounds", "/status", "/profile", "/admin", "/support"):
+    for cmd in (
+        "/flip",
+        "/wheel",
+        "/games",
+        "/rounds",
+        "/status",
+        "/profile",
+        "/admin",
+        "/support",
+    ):
         assert cmd in body
 
 
@@ -227,6 +236,7 @@ def test_flip_reply_rejected_insufficient_balance() -> None:
     )
 
     snap = _FlipSnapshot(
+        game_id="coin_flip",
         status="rejected",
         details={
             "rejection_reason": "Operation would result in negative balance",
@@ -247,6 +257,7 @@ def test_flip_reply_win_lose_committed() -> None:
     )
 
     win = _FlipSnapshot(
+        game_id="coin_flip",
         status="committed",
         details={"outcome": "win"},
         balance_line="Token balance: 11",
@@ -256,6 +267,7 @@ def test_flip_reply_win_lose_committed() -> None:
     )
     assert "Result: Win" in _flip_reply_from_snapshot(win)
     lose = _FlipSnapshot(
+        game_id="coin_flip",
         status="committed",
         details={"outcome": "lose"},
         balance_line="Token balance: 9",
@@ -264,3 +276,24 @@ def test_flip_reply_win_lose_committed() -> None:
         idempotent_replay=False,
     )
     assert "Result: Lose" in _flip_reply_from_snapshot(lose)
+
+
+def test_wheel_reply_bust_committed() -> None:
+    from casino_bot.telegram_bot.handlers import (
+        _FlipSnapshot,
+        _flip_reply_from_snapshot,
+    )
+
+    snap = _FlipSnapshot(
+        game_id="bonus_wheel",
+        status="committed",
+        details={"outcome": "bust", "payout_delta": -10.0},
+        balance_line="Token balance: 40",
+        user_id=1,
+        bet_amount=10,
+        idempotent_replay=False,
+    )
+    body = _flip_reply_from_snapshot(snap)
+    assert "Bonus wheel" in body
+    assert "Bust" in body
+    assert "-10" in body

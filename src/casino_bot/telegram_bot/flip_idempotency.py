@@ -2,7 +2,8 @@
 
 Contract (single source of truth is ``game_rounds``):
 
-- Commands: ``tg:{telegram_user_id}:cmd:{update_id}`` — one flip per ``update_id``.
+- Commands: ``tg:{telegram_user_id}:cmd:{update_id}`` — one round per ``update_id``
+  for that command (e.g. ``/flip``, ``/wheel``).
 - Callbacks: ``tg:{telegram_user_id}:cb:{callback_query.id}`` — Telegram guarantees
   ``callback_query.id`` uniqueness per bot; duplicate deliveries replay the same round.
 

@@ -12,9 +12,11 @@ from casino_bot.core.logging_config import configure_logging
 from casino_bot.settings import settings
 from casino_bot.telegram_bot.handlers import (
     callback_flip,
+    callback_wheel,
     cmd_admin,
     cmd_balance,
     cmd_flip,
+    cmd_games,
     cmd_help,
     cmd_me,
     cmd_profile,
@@ -22,6 +24,7 @@ from casino_bot.telegram_bot.handlers import (
     cmd_start,
     cmd_status,
     cmd_support,
+    cmd_wheel,
 )
 from casino_bot.telegram_bot.preflight import telegram_polling_startup_error
 
@@ -37,8 +40,13 @@ def build_application() -> Application:
     application.add_handler(CommandHandler("me", cmd_me))
     application.add_handler(CommandHandler("balance", cmd_balance))
     application.add_handler(CommandHandler("flip", cmd_flip))
+    application.add_handler(CommandHandler("wheel", cmd_wheel))
+    application.add_handler(CommandHandler("games", cmd_games))
     application.add_handler(CommandHandler("rounds", cmd_rounds))
     application.add_handler(CallbackQueryHandler(callback_flip, pattern=r"^flip:\d+$"))
+    application.add_handler(
+        CallbackQueryHandler(callback_wheel, pattern=r"^wheel:\d+$")
+    )
     application.add_handler(CommandHandler("status", cmd_status))
     application.add_handler(CommandHandler("profile", cmd_profile))
     application.add_handler(CommandHandler("admin", cmd_admin))
