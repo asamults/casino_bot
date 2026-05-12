@@ -10,7 +10,7 @@ idna==3.13
 iniconfig==2.3.0
 Mako==1.3.12
 MarkupSafe==3.0.3
-packaging==25.0
+packaging==26.2
 pluggy==1.6.0
 
 # PostgreSQL: psycopg v3 only
