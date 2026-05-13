@@ -23,6 +23,12 @@ def welcome_message(*, internal_user_id: int) -> str:
 
 
 def help_message() -> str:
+    from casino_bot.games.bonus_wheel import BONUS_WHEEL_GAME_ID
+    from casino_bot.settings import settings
+
+    wheel_help = ""
+    if BONUS_WHEEL_GAME_ID in settings.GAMES_ENABLED:
+        wheel_help = f"{game_texts.WHEEL_HELP_LINE}\n"
     return (
         "Available commands:\n"
         "/start — Register or reconnect (links your Telegram account)\n"
@@ -31,7 +37,7 @@ def help_message() -> str:
         "/balance — Show your token balance (if initialized)\n"
         f"{game_texts.GAMES_HELP_LINE}\n"
         f"{game_texts.FLIP_HELP_LINE}\n"
-        f"{game_texts.WHEEL_HELP_LINE}\n"
+        f"{wheel_help}"
         f"{game_texts.ROUNDS_HELP_LINE}\n"
         "/status — Liveness vs database readiness (high level)\n"
         "/profile — Your linked account summary (non-sensitive fields)\n"

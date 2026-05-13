@@ -19,6 +19,12 @@ WHEEL_HELP_LINE = (
     "/wheel — Bonus wheel (weighted tiers; quick buttons or /wheel <whole number>)"
 )
 
+WHEEL_NOT_ENABLED_MESSAGE = (
+    "Bonus wheel is turned off on this bot. "
+    'The operator must add "bonus_wheel" to the GAMES_ENABLED setting '
+    '(JSON list, e.g. ["coin_flip","bonus_wheel"]) and restart the bot process.'
+)
+
 AUDIO_STUB_LINE = "Audio prize delivery in Telegram is not wired yet — text only."
 
 

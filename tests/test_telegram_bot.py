@@ -209,11 +209,14 @@ def test_support_reply_with_text_and_url() -> None:
     assert "https://example.com/help" in body
 
 
-def test_help_message_lists_new_commands() -> None:
+def test_help_message_lists_new_commands(monkeypatch: pytest.MonkeyPatch) -> None:
+    import casino_bot.settings as smod
+
+    cfg = Settings(_env_file=None, GAMES_ENABLED=["coin_flip"])
+    monkeypatch.setattr(smod, "settings", cfg)
     body = help_message()
     for cmd in (
         "/flip",
-        "/wheel",
         "/games",
         "/rounds",
         "/status",
@@ -222,6 +225,18 @@ def test_help_message_lists_new_commands() -> None:
         "/support",
     ):
         assert cmd in body
+    assert "/wheel" not in body
+
+
+def test_help_message_includes_wheel_when_bonus_wheel_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import casino_bot.settings as smod
+
+    cfg = Settings(_env_file=None, GAMES_ENABLED=["coin_flip", "bonus_wheel"])
+    monkeypatch.setattr(smod, "settings", cfg)
+    body = help_message()
+    assert "/wheel" in body
 
 
 def test_settings_telegram_support_text_unescape() -> None:

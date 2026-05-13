@@ -738,9 +738,7 @@ async def cmd_wheel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     if BONUS_WHEEL_GAME_ID not in settings.GAMES_ENABLED:
-        await msg.reply_text(
-            game_texts.game_engine_rejected_user_message("game_disabled")
-        )
+        await msg.reply_text(game_texts.WHEEL_NOT_ENABLED_MESSAGE)
         return
 
     if not context.args:
@@ -877,7 +875,7 @@ async def callback_wheel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await query.answer()
 
     if BONUS_WHEEL_GAME_ID not in settings.GAMES_ENABLED:
-        text = game_texts.game_engine_rejected_user_message("game_disabled")
+        text = game_texts.WHEEL_NOT_ENABLED_MESSAGE
         try:
             await query.edit_message_text(text)
         except BadRequest:
