@@ -87,6 +87,15 @@ def _run_game_detailed_inner(
         return existing, True
 
     if game_policy.game_has_stake_policy(game_id):
+        acc = db.query(TokenAccount).filter(TokenAccount.user_id == user_id).first()
+        bal = float(acc.balance) if acc is not None else 0.0
+        min_access = float(app_settings.GAME_ACCESS_MIN_TOKENS)
+        if bal + 1e-9 < min_access:
+            raise GameEngineRejected(
+                "access_tokens_required",
+                f"Balance {bal} is below GAME_ACCESS_MIN_TOKENS ({min_access})",
+            )
+
         cooldown_sec = game_policy.effective_cooldown_seconds(game_id, app_settings)
         if cooldown_sec > 0:
             last = (
@@ -111,8 +120,6 @@ def _run_game_detailed_inner(
                         cooldown_remaining_seconds=secs,
                     )
 
-        acc = db.query(TokenAccount).filter(TokenAccount.user_id == user_id).first()
-        bal = float(acc.balance) if acc is not None else 0.0
         if bal + 1e-9 < float(bet_amount):
             raise GameEngineRejected(
                 "insufficient_balance",

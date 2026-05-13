@@ -28,6 +28,20 @@ WHEEL_NOT_ENABLED_MESSAGE = (
 AUDIO_STUB_LINE = "Audio prize delivery in Telegram is not wired yet — text only."
 
 
+def access_tokens_required_user_message(*, min_access_tokens: int) -> str:
+    if min_access_tokens <= 1:
+        return "You need tokens to play games. Your balance was not changed."
+    return (
+        f"You need at least {min_access_tokens} token(s) to play games. "
+        "Your balance was not changed."
+    )
+
+
+def wheel_audio_sequence_fallback_notice() -> str:
+    """Single canonical line when wheel voice assets are missing or sending failed (6C)."""
+    return "(Voice cue unavailable — continuing with text only.)"
+
+
 def games_catalog_message(metas: list[GameMeta]) -> str:
     if not metas:
         return "No games are enabled on this bot deployment."
@@ -88,6 +102,12 @@ def game_engine_rejected_user_message(
         return (
             "Cooldown active — try again in about "
             f"{cooldown_remaining_seconds} second(s)."
+        )
+    if code == "access_tokens_required":
+        from casino_bot.settings import settings as app_settings
+
+        return access_tokens_required_user_message(
+            min_access_tokens=int(app_settings.GAME_ACCESS_MIN_TOKENS),
         )
     return GAME_ENGINE_REJECT_USER_MESSAGES.get(
         code,

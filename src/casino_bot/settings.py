@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import math
 import re
 from datetime import datetime, timezone
 from types import MethodType
@@ -197,6 +198,12 @@ class Settings(BaseSettings):
     BONUS_WHEEL_COOLDOWN_SECONDS: int = 0
     BONUS_WHEEL_ALLOW_ZERO_COOLDOWN_IN_PRODUCTION: bool = False
 
+    # Phase 6 — token access gate + package price catalog (GBP; checkout wiring optional).
+    GAME_ACCESS_MIN_TOKENS: int = 1
+    TOKEN_PACKAGE_100_PRICE_GBP: float = 1.0
+    TOKEN_PACKAGE_1000_PRICE_GBP: float = 5.0
+    TOKEN_PACKAGE_10000_PRICE_GBP: float = 20.0
+
     # Telegram — Phase 4A guardrails (in-process sliding window; 0 = disable limit)
     TELEGRAM_FLIP_PROMPT_RATE_LIMIT_PER_MINUTE: int = 30
     TELEGRAM_FLIP_ACTION_RATE_LIMIT_PER_MINUTE: int = 60
@@ -267,6 +274,15 @@ class Settings(BaseSettings):
             raise ValueError("BONUS_WHEEL_MAX_BET must be >= BONUS_WHEEL_MIN_BET")
         if self.BONUS_WHEEL_COOLDOWN_SECONDS < 0:
             raise ValueError("BONUS_WHEEL_COOLDOWN_SECONDS must be >= 0")
+        if self.GAME_ACCESS_MIN_TOKENS < 1:
+            raise ValueError("GAME_ACCESS_MIN_TOKENS must be >= 1")
+        for name, val in (
+            ("TOKEN_PACKAGE_100_PRICE_GBP", self.TOKEN_PACKAGE_100_PRICE_GBP),
+            ("TOKEN_PACKAGE_1000_PRICE_GBP", self.TOKEN_PACKAGE_1000_PRICE_GBP),
+            ("TOKEN_PACKAGE_10000_PRICE_GBP", self.TOKEN_PACKAGE_10000_PRICE_GBP),
+        ):
+            if val <= 0 or not math.isfinite(float(val)):
+                raise ValueError(f"{name} must be a finite number > 0")
         return self
 
     @field_validator(

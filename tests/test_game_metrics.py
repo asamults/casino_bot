@@ -225,3 +225,36 @@ def test_metrics_bonus_wheel_committed_bust_outcome(
         },
     )
     assert after == before + 1
+
+
+def test_metrics_access_tokens_required_uses_rejection_counter(
+    sqlite_session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = Settings(
+        _env_file=None,
+        GAMES_ENABLED=["coin_flip"],
+        GAME_ACCESS_MIN_TOKENS=50,
+    )
+    monkeypatch.setattr("casino_bot.settings.settings", cfg)
+    user = ensure_telegram_user(sqlite_session, telegram_user_id=93005)
+    _fund(sqlite_session, user_id=user.id, amount=10.0)
+    sqlite_session.commit()
+
+    before = _labeled_counter_value(
+        "casino_bot_game_round_rejected_total",
+        {"game_id": "coin_flip", "code": "access_tokens_required"},
+    )
+    with pytest.raises(GameEngineRejected):
+        run_game(
+            sqlite_session,
+            user_id=user.id,
+            game_id="coin_flip",
+            bet_amount=1,
+            idempotency_key="access-gate-metric",
+            actor="tests",
+        )
+    after = _labeled_counter_value(
+        "casino_bot_game_round_rejected_total",
+        {"game_id": "coin_flip", "code": "access_tokens_required"},
+    )
+    assert after == before + 1

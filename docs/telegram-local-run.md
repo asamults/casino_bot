@@ -2,6 +2,8 @@
 
 This repo ships an **optional** Telegram adapter that connects with the same Postgres database as the FastAPI API. Nothing in the HTTP app requires a Telegram token; the bot runs as a **separate OS process** (`python -m casino_bot.telegram_bot.polling`).
 
+**Production:** use a **single** polling process per bot token (typically **systemd**). See [docs/ops/telegram-polling-production.md](ops/telegram-polling-production.md).
+
 ## Why `python-telegram-bot` (not aiogram)?
 
 Both libraries are viable for Telegram Bot API bots. Here we chose [**python-telegram-bot**](https://python-telegram-bot.org/) (PTB) **21.x** because:

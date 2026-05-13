@@ -31,6 +31,12 @@ game_token_volume_total = Counter(
     labelnames=("game_id", "direction"),
 )
 
+audio_delivery_total = Counter(
+    f"{APP_NAMESPACE}_audio_delivery_total",
+    "Telegram voice cue delivery attempts (Phase 6)",
+    labelnames=("channel", "cue_type", "status"),
+)
+
 
 def _committed_outcome_label(details: dict | None) -> str:
     if not details:
@@ -39,6 +45,11 @@ def _committed_outcome_label(details: dict | None) -> str:
     if o in ("win", "lose", "bust", "bronze", "silver", "gold"):
         return str(o)
     return "unknown"
+
+
+def record_audio_delivery(*, channel: str, cue_type: str, status: str) -> None:
+    """``status`` is ``sent``, ``fallback`` (no asset), or ``failed`` (API error)."""
+    audio_delivery_total.labels(channel, cue_type, status).inc()
 
 
 def record_game_engine_rejection(

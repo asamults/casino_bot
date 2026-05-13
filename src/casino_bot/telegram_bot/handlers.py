@@ -26,7 +26,7 @@ from casino_bot.telegram_bot.flip_idempotency import (
     callback_idempotency_key,
     command_idempotency_key,
 )
-from casino_bot.telegram_bot import game_texts
+from casino_bot.telegram_bot import game_texts, presentation_delivery
 from casino_bot.telegram_bot.rate_limit import allow_flip_action, allow_flip_prompt
 from casino_bot.telegram_bot.texts import (
     NOT_LINKED_BALANCE,
@@ -605,7 +605,19 @@ async def cmd_flip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         snap.status,
         snap.idempotent_replay,
     )
-    await msg.reply_text(body)
+    if snap.status == "committed" and (snap.details or {}).get("outcome") in (
+        "win",
+        "lose",
+    ):
+        await presentation_delivery.deliver_flip_committed_command(
+            msg,
+            stake_tokens=snap.bet_amount,
+            outcome=str((snap.details or {})["outcome"]),
+            balance_line=snap.balance_line,
+            idempotent_replay=snap.idempotent_replay,
+        )
+    else:
+        await msg.reply_text(body)
 
 
 async def callback_flip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -699,10 +711,22 @@ async def callback_flip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         snap.status,
         snap.idempotent_replay,
     )
-    try:
-        await query.edit_message_text(body)
-    except BadRequest:
-        await query.message.reply_text(body)
+    if snap.status == "committed" and (snap.details or {}).get("outcome") in (
+        "win",
+        "lose",
+    ):
+        await presentation_delivery.deliver_flip_committed_callback(
+            query,
+            stake_tokens=snap.bet_amount,
+            outcome=str((snap.details or {})["outcome"]),
+            balance_line=snap.balance_line,
+            idempotent_replay=snap.idempotent_replay,
+        )
+    else:
+        try:
+            await query.edit_message_text(body)
+        except BadRequest:
+            await query.message.reply_text(body)
 
 
 async def cmd_games(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -851,7 +875,23 @@ async def cmd_wheel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         snap.status,
         snap.idempotent_replay,
     )
-    await msg.reply_text(body)
+    if snap.status == "committed" and (snap.details or {}).get("outcome") in (
+        "bust",
+        "bronze",
+        "silver",
+        "gold",
+    ):
+        d = snap.details or {}
+        await presentation_delivery.deliver_wheel_committed_command(
+            msg,
+            stake_tokens=snap.bet_amount,
+            outcome=str(d["outcome"]),
+            payout_delta=float(d.get("payout_delta", 0.0)),
+            balance_line=snap.balance_line,
+            idempotent_replay=snap.idempotent_replay,
+        )
+    else:
+        await msg.reply_text(body)
 
 
 async def callback_wheel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -955,10 +995,26 @@ async def callback_wheel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         snap.status,
         snap.idempotent_replay,
     )
-    try:
-        await query.edit_message_text(body)
-    except BadRequest:
-        await query.message.reply_text(body)
+    if snap.status == "committed" and (snap.details or {}).get("outcome") in (
+        "bust",
+        "bronze",
+        "silver",
+        "gold",
+    ):
+        d = snap.details or {}
+        await presentation_delivery.deliver_wheel_committed_callback(
+            query,
+            stake_tokens=snap.bet_amount,
+            outcome=str(d["outcome"]),
+            payout_delta=float(d.get("payout_delta", 0.0)),
+            balance_line=snap.balance_line,
+            idempotent_replay=snap.idempotent_replay,
+        )
+    else:
+        try:
+            await query.edit_message_text(body)
+        except BadRequest:
+            await query.message.reply_text(body)
 
 
 async def cmd_rounds(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
