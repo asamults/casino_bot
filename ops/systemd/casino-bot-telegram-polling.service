@@ -1,0 +1,40 @@
+# Example systemd unit — Casino Bot Telegram long polling (one process per bot token).
+#
+# Install (paths are examples; adjust before enable):
+#   sudo install -m 0644 ops/systemd/casino-bot-telegram-polling.service \
+#     /etc/systemd/system/casino-bot-telegram-polling.service
+#   sudo systemctl daemon-reload
+#
+# Secrets: create /etc/casino-bot/telegram.env (chmod 600, root:casino-bot or
+# casino-bot:casino-bot). Do not commit real tokens. See docs/ops/telegram-polling-production-runbook.md.
+#
+# Replace:
+#   User / Group          — unprivileged account that owns the app tree
+#   WorkingDirectory      — application root (git checkout or release dir)
+#   ExecStart             — venv python that has casino_bot installed, or same + PYTHONPATH
+#   Environment=PYTHONPATH — omit if casino_bot is installed into the venv (pip install .)
+
+[Unit]
+Description=Casino Bot Telegram long polling (PTB getUpdates)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=casino-bot
+Group=casino-bot
+WorkingDirectory=/opt/casino-bot/app
+Environment=PYTHONPATH=/opt/casino-bot/app/src
+EnvironmentFile=/etc/casino-bot/telegram.env
+ExecStart=/opt/casino-bot/app/.venv/bin/python -m casino_bot.telegram_bot.polling
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Hardening (optional; tune if your platform rejects these)
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
