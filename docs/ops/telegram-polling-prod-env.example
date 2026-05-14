@@ -1,0 +1,17 @@
+# Example fragment for /etc/casino-bot/telegram.env (host only; chmod 600).
+# The polling process loads the full Settings model — include ALL production
+# variables required by src/casino_bot/settings.py (copy from .env.prod.example
+# and replace placeholders). This file lists Telegram-specific keys you must
+# not forget when enabling polling in production.
+#
+# Real secrets are set only on the server; never commit filled copies.
+
+ENVIRONMENT=production
+TELEGRAM_BOT_ENABLED=true
+TELEGRAM_BOT_TOKEN=REPLACE_WITH_BOTFATHER_TOKEN
+# Must include "production" when ENVIRONMENT=production or preflight refuses to start:
+TELEGRAM_POLLING_ALLOWED_ENVIRONMENTS=development,staging,production
+
+# DATABASE_URL, SECRET_KEY, JWT_SIGNING_KEY, REFRESH_TOKEN_PEPPER,
+# USER_API_INTERNAL_TOKEN, CORS_ALLOW_ORIGINS, ALLOWED_HOSTS,
+# BILLING_*, GAMES_ENABLED, GAME_ACCESS_MIN_TOKENS, etc. — see ../../.env.prod.example
