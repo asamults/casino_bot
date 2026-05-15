@@ -200,6 +200,7 @@ class Settings(BaseSettings):
 
     # Phase 6 — token access gate + package price catalog (GBP; checkout wiring optional).
     GAME_ACCESS_MIN_TOKENS: int = 1
+    TOKEN_UNIT_SCALE: int = 1000
     TOKEN_PACKAGE_100_PRICE_GBP: float = 1.0
     TOKEN_PACKAGE_1000_PRICE_GBP: float = 5.0
     TOKEN_PACKAGE_10000_PRICE_GBP: float = 20.0
@@ -276,6 +277,8 @@ class Settings(BaseSettings):
             raise ValueError("BONUS_WHEEL_COOLDOWN_SECONDS must be >= 0")
         if self.GAME_ACCESS_MIN_TOKENS < 1:
             raise ValueError("GAME_ACCESS_MIN_TOKENS must be >= 1")
+        if self.TOKEN_UNIT_SCALE < 1:
+            raise ValueError("TOKEN_UNIT_SCALE must be >= 1")
         for name, val in (
             ("TOKEN_PACKAGE_100_PRICE_GBP", self.TOKEN_PACKAGE_100_PRICE_GBP),
             ("TOKEN_PACKAGE_1000_PRICE_GBP", self.TOKEN_PACKAGE_1000_PRICE_GBP),

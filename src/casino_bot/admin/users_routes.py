@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 
 from casino_bot.admin.deps import admin_guard
 from casino_bot.core.database import get_db
-from casino_bot.services import economy_service
+from casino_bot.services import economy_service, token_amounts
+from casino_bot.settings import settings
 
 router = APIRouter(tags=["admin"])
 
@@ -22,7 +23,7 @@ class UserCreateBody(BaseModel):
 
 
 class TokenAdjustBody(BaseModel):
-    delta: float
+    delta_units: int
     reason: str = Field(..., min_length=1, max_length=255)
 
 
@@ -64,7 +65,7 @@ def admin_adjust_tokens(
         account = economy_service.adjust_user_tokens(
             db,
             user_id=user_id,
-            delta=payload.delta,
+            delta_units=payload.delta_units,
             reason=payload.reason,
             actor=actor,
         )
@@ -75,4 +76,12 @@ def admin_adjust_tokens(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
-    return {"user_id": user_id, "balance": account.balance}
+    u = int(account.balance_units)
+    return {
+        "user_id": user_id,
+        "balance_units": u,
+        "balance_tokens": token_amounts.format_signed_token_amount(
+            u, scale=settings.TOKEN_UNIT_SCALE
+        ).lstrip("+"),
+        "balance": float(account.balance),
+    }

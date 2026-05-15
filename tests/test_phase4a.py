@@ -16,6 +16,7 @@ from casino_bot.telegram_bot.rate_limit import (
 )
 from casino_bot.telegram_bot.user_ops import ensure_telegram_user
 from casino_bot.services.economy_service import adjust_user_tokens
+from casino_bot.services.token_amounts import tokens_whole_to_units
 
 
 def _minimal_production_settings(**kwargs: object) -> Settings:
@@ -34,11 +35,15 @@ def _minimal_production_settings(**kwargs: object) -> Settings:
     return Settings(_env_file=None, **merged)
 
 
-def _fund(db, *, user_id: int, amount: float) -> None:
+def _fund(db, *, user_id: int, whole_tokens: int) -> None:
+    from casino_bot.settings import settings as app_settings
+
     adjust_user_tokens(
         db,
         user_id=user_id,
-        delta=amount,
+        delta_units=tokens_whole_to_units(
+            whole_tokens, scale=app_settings.TOKEN_UNIT_SCALE
+        ),
         reason="test:fund",
         actor="tests",
     )
@@ -119,8 +124,8 @@ def test_rounds_history_scoped_to_internal_user(
     monkeypatch.setattr("casino_bot.telegram_bot.handlers.settings", cfg)
     u1 = ensure_telegram_user(sqlite_session, telegram_user_id=88001)
     u2 = ensure_telegram_user(sqlite_session, telegram_user_id=88002)
-    _fund(sqlite_session, user_id=u1.id, amount=100.0)
-    _fund(sqlite_session, user_id=u2.id, amount=100.0)
+    _fund(sqlite_session, user_id=u1.id, whole_tokens=100)
+    _fund(sqlite_session, user_id=u2.id, whole_tokens=100)
     sqlite_session.commit()
     run_game(
         sqlite_session,

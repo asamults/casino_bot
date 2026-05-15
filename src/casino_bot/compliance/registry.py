@@ -19,33 +19,33 @@ class Operation(str, Enum):
 
 
 def _negative_balance(ctx: ComplianceContext) -> None:
-    if ctx.balance + ctx.delta < 0:
+    if ctx.balance_units + ctx.delta_units < 0:
         raise ComplianceViolation("Operation would result in negative balance")
 
 
 def _debit_blocked_pending_cash_out(ctx: ComplianceContext) -> None:
-    if ctx.pending_cash_out and ctx.delta < 0:
+    if ctx.pending_cash_out and ctx.delta_units < 0:
         raise ComplianceViolation(
             "Token debits are blocked while a cash-out request is pending"
         )
 
 
 def _debit_blocked_pending_transfer(ctx: ComplianceContext) -> None:
-    if ctx.pending_transfer and ctx.delta < 0:
+    if ctx.pending_transfer and ctx.delta_units < 0:
         raise ComplianceViolation(
             "Token debits are blocked while a transfer request is pending"
         )
 
 
 def _credit_blocked_pending_cash_out(ctx: ComplianceContext) -> None:
-    if ctx.pending_cash_out and ctx.delta > 0:
+    if ctx.pending_cash_out and ctx.delta_units > 0:
         raise ComplianceViolation(
             "Token credits are blocked while a cash-out request is pending"
         )
 
 
 def _credit_blocked_pending_transfer(ctx: ComplianceContext) -> None:
-    if ctx.pending_transfer and ctx.delta > 0:
+    if ctx.pending_transfer and ctx.delta_units > 0:
         raise ComplianceViolation(
             "Token credits are blocked while a transfer request is pending"
         )

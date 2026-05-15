@@ -11,15 +11,20 @@ from casino_bot.db.models import GameRound, TokenAccount
 from casino_bot.games.registry import list_games
 from casino_bot.games.service import GameEngineRejected, run_game
 from casino_bot.services.economy_service import adjust_user_tokens
+from casino_bot.services.token_amounts import tokens_whole_to_units
 from casino_bot.settings import Settings
 from casino_bot.telegram_bot.user_ops import ensure_telegram_user
 
 
-def _fund(db, *, user_id: int, amount: float) -> None:
+def _fund(db, *, user_id: int, whole_tokens: int) -> None:
+    from casino_bot.settings import settings as app_settings
+
     adjust_user_tokens(
         db,
         user_id=user_id,
-        delta=amount,
+        delta_units=tokens_whole_to_units(
+            whole_tokens, scale=app_settings.TOKEN_UNIT_SCALE
+        ),
         reason="test:fund",
         actor="tests",
     )
@@ -49,7 +54,7 @@ def test_coin_flip_win_credits_plus_bet(
 ):
     monkeypatch.setattr("casino_bot.games.service.new_rng", lambda: _FakeRng(0.0))
     user = ensure_telegram_user(sqlite_session, telegram_user_id=92001)
-    _fund(sqlite_session, user_id=user.id, amount=100.0)
+    _fund(sqlite_session, user_id=user.id, whole_tokens=100)
     sqlite_session.commit()
 
     gr = run_game(
@@ -63,17 +68,17 @@ def test_coin_flip_win_credits_plus_bet(
     sqlite_session.commit()
 
     assert gr.status == "committed"
-    assert gr.payout_delta == 10.0
+    assert gr.payout_units == 10_000
     bal = (
         sqlite_session.query(TokenAccount)
         .filter(TokenAccount.user_id == user.id)
         .one()
-        .balance
+        .balance_units
     )
-    assert bal == 110.0
+    assert bal == 110_000
     d = gr.details_json or {}
     assert d["outcome"] == "win"
-    assert d["payout_delta"] == 10.0
+    assert d["payout_delta_units"] == 10_000
     assert d["prize"] == 10
     assert d["rng_version"] == "v1"
     assert d["game"] == "coin_flip"
@@ -84,7 +89,7 @@ def test_coin_flip_lose_debits_minus_bet(
 ) -> None:
     monkeypatch.setattr("casino_bot.games.service.new_rng", lambda: _FakeRng(0.99))
     user = ensure_telegram_user(sqlite_session, telegram_user_id=92002)
-    _fund(sqlite_session, user_id=user.id, amount=100.0)
+    _fund(sqlite_session, user_id=user.id, whole_tokens=100)
     sqlite_session.commit()
 
     gr = run_game(
@@ -98,17 +103,17 @@ def test_coin_flip_lose_debits_minus_bet(
     sqlite_session.commit()
 
     assert gr.status == "committed"
-    assert gr.payout_delta == -10.0
+    assert gr.payout_units == -10_000
     bal = (
         sqlite_session.query(TokenAccount)
         .filter(TokenAccount.user_id == user.id)
         .one()
-        .balance
+        .balance_units
     )
-    assert bal == 90.0
+    assert bal == 90_000
     d = gr.details_json or {}
     assert d["outcome"] == "lose"
-    assert d["payout_delta"] == -10.0
+    assert d["payout_delta_units"] == -10_000
     assert d["prize"] == 0
 
 
@@ -117,7 +122,7 @@ def test_idempotency_key_replay_same_round_no_double_spend(
 ) -> None:
     monkeypatch.setattr("casino_bot.games.service.new_rng", lambda: _FakeRng(0.0))
     user = ensure_telegram_user(sqlite_session, telegram_user_id=92003)
-    _fund(sqlite_session, user_id=user.id, amount=100.0)
+    _fund(sqlite_session, user_id=user.id, whole_tokens=100)
     sqlite_session.commit()
 
     gr1 = run_game(
@@ -148,9 +153,9 @@ def test_idempotency_key_replay_same_round_no_double_spend(
         sqlite_session.query(TokenAccount)
         .filter(TokenAccount.user_id == user.id)
         .one()
-        .balance
+        .balance_units
     )
-    assert bal == 110.0
+    assert bal == 110_000
 
 
 def test_disabled_game_rejected(
@@ -159,7 +164,7 @@ def test_disabled_game_rejected(
     cfg = Settings(_env_file=None, GAMES_ENABLED=[])
     monkeypatch.setattr("casino_bot.settings.settings", cfg)
     user = ensure_telegram_user(sqlite_session, telegram_user_id=92004)
-    _fund(sqlite_session, user_id=user.id, amount=50.0)
+    _fund(sqlite_session, user_id=user.id, whole_tokens=50)
     sqlite_session.commit()
 
     with pytest.raises(GameEngineRejected) as excinfo:
@@ -178,7 +183,7 @@ def test_disabled_game_rejected(
 
 def test_below_min_bet_rejected(sqlite_session) -> None:
     user = ensure_telegram_user(sqlite_session, telegram_user_id=92005)
-    _fund(sqlite_session, user_id=user.id, amount=50.0)
+    _fund(sqlite_session, user_id=user.id, whole_tokens=50)
     sqlite_session.commit()
 
     with pytest.raises(GameEngineRejected) as excinfo:
@@ -195,7 +200,7 @@ def test_below_min_bet_rejected(sqlite_session) -> None:
 
 def test_above_max_bet_rejected(sqlite_session) -> None:
     user = ensure_telegram_user(sqlite_session, telegram_user_id=92006)
-    _fund(sqlite_session, user_id=user.id, amount=200.0)
+    _fund(sqlite_session, user_id=user.id, whole_tokens=200)
     sqlite_session.commit()
 
     with pytest.raises(GameEngineRejected) as excinfo:
@@ -214,7 +219,7 @@ def test_insufficient_funds_rejected(sqlite_session, monkeypatch: pytest.MonkeyP
     """Stake must be covered up front (even if RNG would have yielded a win)."""
     monkeypatch.setattr("casino_bot.games.service.new_rng", lambda: _FakeRng(0.99))
     user = ensure_telegram_user(sqlite_session, telegram_user_id=92007)
-    _fund(sqlite_session, user_id=user.id, amount=3.0)
+    _fund(sqlite_session, user_id=user.id, whole_tokens=3)
     sqlite_session.commit()
 
     with pytest.raises(GameEngineRejected) as excinfo:
@@ -232,9 +237,9 @@ def test_insufficient_funds_rejected(sqlite_session, monkeypatch: pytest.MonkeyP
         sqlite_session.query(TokenAccount)
         .filter(TokenAccount.user_id == user.id)
         .one()
-        .balance
+        .balance_units
     )
-    assert bal == 3.0
+    assert bal == 3_000
 
 
 def test_insufficient_balance_blocks_win_outcome(
@@ -242,7 +247,7 @@ def test_insufficient_balance_blocks_win_outcome(
 ):
     monkeypatch.setattr("casino_bot.games.service.new_rng", lambda: _FakeRng(0.0))
     user = ensure_telegram_user(sqlite_session, telegram_user_id=92010)
-    _fund(sqlite_session, user_id=user.id, amount=7.0)
+    _fund(sqlite_session, user_id=user.id, whole_tokens=7)
     sqlite_session.commit()
 
     with pytest.raises(GameEngineRejected) as excinfo:
@@ -259,9 +264,9 @@ def test_insufficient_balance_blocks_win_outcome(
         sqlite_session.query(TokenAccount)
         .filter(TokenAccount.user_id == user.id)
         .one()
-        .balance
+        .balance_units
     )
-    assert bal == 7.0
+    assert bal == 7_000
 
 
 def test_idempotent_replay_skips_cooldown(
@@ -275,7 +280,7 @@ def test_idempotent_replay_skips_cooldown(
     monkeypatch.setattr("casino_bot.settings.settings", cfg)
     monkeypatch.setattr("casino_bot.games.service.new_rng", lambda: _FakeRng(0.0))
     user = ensure_telegram_user(sqlite_session, telegram_user_id=92011)
-    _fund(sqlite_session, user_id=user.id, amount=100.0)
+    _fund(sqlite_session, user_id=user.id, whole_tokens=100)
     sqlite_session.commit()
 
     gr1 = run_game(
@@ -310,7 +315,7 @@ def test_cooldown_blocks_new_idempotency_key(
     monkeypatch.setattr("casino_bot.settings.settings", cfg)
     monkeypatch.setattr("casino_bot.games.service.new_rng", lambda: _FakeRng(0.0))
     user = ensure_telegram_user(sqlite_session, telegram_user_id=92012)
-    _fund(sqlite_session, user_id=user.id, amount=100.0)
+    _fund(sqlite_session, user_id=user.id, whole_tokens=100)
     sqlite_session.commit()
 
     run_game(
@@ -339,7 +344,7 @@ def test_cooldown_blocks_new_idempotency_key(
 def test_coin_flip_win_rate_sanity_200_flips(sqlite_session) -> None:
     """Obvious RNG bugs (e.g. always lose) should fail this band."""
     user = ensure_telegram_user(sqlite_session, telegram_user_id=92008)
-    _fund(sqlite_session, user_id=user.id, amount=10_000.0)
+    _fund(sqlite_session, user_id=user.id, whole_tokens=10_000)
     sqlite_session.commit()
 
     wins = 0
@@ -367,7 +372,7 @@ def test_coin_flip_win_rate_sanity_200_flips(sqlite_session) -> None:
 def test_default_actor_game_engine(sqlite_session, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr("casino_bot.games.service.new_rng", lambda: _FakeRng(0.0))
     user = ensure_telegram_user(sqlite_session, telegram_user_id=92009)
-    _fund(sqlite_session, user_id=user.id, amount=10.0)
+    _fund(sqlite_session, user_id=user.id, whole_tokens=10)
     sqlite_session.commit()
 
     gr = run_game(

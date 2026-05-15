@@ -19,13 +19,13 @@ def assert_no_transfer(*, transfer_enabled: bool) -> None:
         raise ComplianceViolation("Transfers between users are prohibited")
 
 
-def forbid_negative_balance(balance: float, delta: float) -> None:
+def forbid_negative_balance(*, balance_units: int, delta_units: int) -> None:
     """Reject debits that would make balance negative (legacy helper)."""
-    if delta >= 0:
+    if delta_units >= 0:
         return
     validate_operation(
         Operation.TOKEN_DEBIT,
-        ComplianceContext(balance=balance, delta=delta),
+        ComplianceContext(balance_units=balance_units, delta_units=delta_units),
     )
 
 

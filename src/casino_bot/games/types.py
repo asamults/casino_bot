@@ -33,7 +33,7 @@ class GameResult:
     """Outcome of ``compute_outcome``; balance is applied only via round ledger."""
 
     outcome: str
-    payout_delta: float
+    payout_delta_units: int
     prize: int
     details: dict[str, Any]
 

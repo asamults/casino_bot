@@ -21,6 +21,7 @@ from casino_bot.db.session import SessionLocal, check_database_ready
 from casino_bot.games.bonus_wheel import BONUS_WHEEL_GAME_ID
 from casino_bot.games.registry import list_enabled_games
 from casino_bot.games.service import GameEngineRejected, run_game_detailed
+from casino_bot.services import token_amounts
 from casino_bot.settings import settings
 from casino_bot.telegram_bot.flip_idempotency import (
     callback_idempotency_key,
@@ -294,11 +295,14 @@ def _telegram_game_reply_from_snapshot(snap: _TelegramGameSnapshot) -> str:
         outcome = details.get("outcome")
         if outcome not in ("bust", "bronze", "silver", "gold"):
             return game_texts.flip_unexpected_error_message()
-        payout_delta = float(details.get("payout_delta", 0.0))
+        pu = int(details.get("payout_delta_units", 0))
+        net_s = token_amounts.format_signed_token_amount(
+            pu, scale=settings.TOKEN_UNIT_SCALE
+        )
         return game_texts.wheel_result_compact(
             stake_tokens=snap.bet_amount,
             outcome=str(outcome),
-            payout_delta=payout_delta,
+            net_change_tokens=net_s,
             balance_line=snap.balance_line,
             idempotent_replay=snap.idempotent_replay,
         )
@@ -363,7 +367,7 @@ def _flip_work(
     )
 
 
-def _quick_stake_amounts(*, game_id: str, balance: float) -> list[int]:
+def _quick_stake_amounts(*, game_id: str, balance_units: int) -> list[int]:
     presets = (1, 5, 10)
     if game_id == "coin_flip":
         lo, hi = settings.COIN_FLIP_MIN_BET, settings.COIN_FLIP_MAX_BET
@@ -371,7 +375,9 @@ def _quick_stake_amounts(*, game_id: str, balance: float) -> list[int]:
         lo, hi = settings.BONUS_WHEEL_MIN_BET, settings.BONUS_WHEEL_MAX_BET
     else:
         return []
-    return [a for a in presets if lo <= a <= hi and balance + 1e-9 >= float(a)]
+    scale = settings.TOKEN_UNIT_SCALE
+    bal_whole = balance_units // scale
+    return [a for a in presets if lo <= a <= hi and bal_whole >= a]
 
 
 def _game_keyboard_prompt_work(
@@ -381,9 +387,9 @@ def _game_keyboard_prompt_work(
     try:
         user = ensure_telegram_user(db, telegram_user_id=telegram_user_id)
         acc = db.query(TokenAccount).filter(TokenAccount.user_id == user.id).first()
-        bal = float(acc.balance) if acc is not None else 0.0
+        bal_units = int(acc.balance_units) if acc is not None else 0
         db.commit()
-        amounts = _quick_stake_amounts(game_id=game_id, balance=bal)
+        amounts = _quick_stake_amounts(game_id=game_id, balance_units=bal_units)
         line = resolve_balance_reply(db, user_id=user.id)
         return amounts, line
     except Exception:
@@ -437,8 +443,12 @@ def rounds_history_message(db: Session, *, user_id: int) -> str:
         gid = gr.game_id or "?"
         rid = (gr.round_id or "")[:8]
         ts = _format_round_ts_utc(gr.committed_at)
+        pu = int(getattr(gr, "payout_units", 0))
+        delta_s = token_amounts.format_signed_token_amount(
+            pu, scale=settings.TOKEN_UNIT_SCALE
+        )
         lines.append(
-            f"{ts} | {gid} | bet={gr.bet_amount:g} | {outcome} | Δ={gr.payout_delta:g} | #{rid}"
+            f"{ts} | {gid} | bet={gr.bet_amount:g} | {outcome} | Δ={delta_s} tokens | #{rid}"
         )
     return "\n".join(lines)
 
@@ -882,11 +892,15 @@ async def cmd_wheel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "gold",
     ):
         d = snap.details or {}
+        pu = int(d.get("payout_delta_units", 0))
+        net_s = token_amounts.format_signed_token_amount(
+            pu, scale=settings.TOKEN_UNIT_SCALE
+        )
         await presentation_delivery.deliver_wheel_committed_command(
             msg,
             stake_tokens=snap.bet_amount,
             outcome=str(d["outcome"]),
-            payout_delta=float(d.get("payout_delta", 0.0)),
+            net_change_tokens=net_s,
             balance_line=snap.balance_line,
             idempotent_replay=snap.idempotent_replay,
         )
@@ -1002,11 +1016,15 @@ async def callback_wheel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         "gold",
     ):
         d = snap.details or {}
+        pu = int(d.get("payout_delta_units", 0))
+        net_s = token_amounts.format_signed_token_amount(
+            pu, scale=settings.TOKEN_UNIT_SCALE
+        )
         await presentation_delivery.deliver_wheel_committed_callback(
             query,
             stake_tokens=snap.bet_amount,
             outcome=str(d["outcome"]),
-            payout_delta=float(d.get("payout_delta", 0.0)),
+            net_change_tokens=net_s,
             balance_line=snap.balance_line,
             idempotent_replay=snap.idempotent_replay,
         )

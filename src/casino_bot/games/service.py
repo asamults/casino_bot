@@ -19,6 +19,7 @@ from casino_bot.games import policy as game_policy
 from casino_bot.games import registry as game_registry
 from casino_bot.games.rng import new_rng
 from casino_bot.games.types import GameInput
+from casino_bot.services import token_amounts
 from casino_bot.services.game_round_service import execute_game_round
 
 
@@ -88,12 +89,16 @@ def _run_game_detailed_inner(
 
     if game_policy.game_has_stake_policy(game_id):
         acc = db.query(TokenAccount).filter(TokenAccount.user_id == user_id).first()
-        bal = float(acc.balance) if acc is not None else 0.0
-        min_access = float(app_settings.GAME_ACCESS_MIN_TOKENS)
-        if bal + 1e-9 < min_access:
+        bal_units = int(acc.balance_units) if acc is not None else 0
+        scale = app_settings.TOKEN_UNIT_SCALE
+        min_access_units = app_settings.GAME_ACCESS_MIN_TOKENS * scale
+        if bal_units < min_access_units:
             raise GameEngineRejected(
                 "access_tokens_required",
-                f"Balance {bal} is below GAME_ACCESS_MIN_TOKENS ({min_access})",
+                (
+                    f"Balance units {bal_units} is below "
+                    f"GAME_ACCESS_MIN_TOKENS * TOKEN_UNIT_SCALE ({min_access_units})"
+                ),
             )
 
         cooldown_sec = game_policy.effective_cooldown_seconds(game_id, app_settings)
@@ -120,10 +125,14 @@ def _run_game_detailed_inner(
                         cooldown_remaining_seconds=secs,
                     )
 
-        if bal + 1e-9 < float(bet_amount):
+        stake_units = token_amounts.tokens_whole_to_units(bet_amount, scale=scale)
+        if bal_units < stake_units:
             raise GameEngineRejected(
                 "insufficient_balance",
-                f"Balance {bal} is below required stake {bet_amount}",
+                (
+                    f"Balance units {bal_units} is below required stake units "
+                    f"{stake_units} (bet {bet_amount} tokens)"
+                ),
             )
 
     try:
@@ -147,10 +156,10 @@ def _run_game_detailed_inner(
         user_id=user_id,
         game_id=game_id,
         idempotency_key=idempotency_key,
-        bet_amount=float(bet_amount),
+        bet_amount=bet_amount,
         actor=actor,
         details=details,
-        payout_delta=result.payout_delta,
+        payout_delta_units=result.payout_delta_units,
     )
     return gr, False
 
@@ -192,12 +201,23 @@ def run_game_detailed(
         raise
     raw_details = gr.details_json
     details_dict = raw_details if isinstance(raw_details, dict) else None
+    from casino_bot.settings import settings as app_settings
+
+    scale = app_settings.TOKEN_UNIT_SCALE
+    bu = int(gr.bet_units or 0)
+    bet_tokens = bu // scale if bu > 0 else int(gr.bet_amount)
+    payout_u = int(gr.payout_units or 0)
+    payout_vol = (
+        token_amounts.units_to_storage_float(payout_u, scale=scale)
+        if payout_u > 0
+        else 0.0
+    )
     record_game_round_completion(
         game_id=game_id,
         status=str(gr.status),
         details=details_dict,
-        bet_amount=float(gr.bet_amount),
-        payout_delta=float(gr.payout_delta),
+        bet_tokens=bet_tokens,
+        payout_volume_tokens=payout_vol,
         idempotent_replay=replay,
         duration_seconds=time.perf_counter() - start,
     )

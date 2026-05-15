@@ -197,7 +197,7 @@ def wheel_result_compact(
     *,
     stake_tokens: int,
     outcome: str,
-    payout_delta: float,
+    net_change_tokens: str,
     balance_line: str,
     idempotent_replay: bool,
 ) -> str:
@@ -206,7 +206,7 @@ def wheel_result_compact(
         "Bonus wheel",
         f"Stake: {stake_tokens} tokens",
         f"Tier: {tier}",
-        f"Net change: {payout_delta:g} tokens",
+        f"Net change: {net_change_tokens} tokens",
         balance_line,
     ]
     body = "\n".join(lines)

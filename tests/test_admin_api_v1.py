@@ -108,7 +108,7 @@ def test_create_user_and_adjust_compliance_error(admin_api_client: TestClient):
     r2 = admin_api_client.post(
         f"/api/v1/admin/users/{uid}/tokens/adjust",
         headers={"Authorization": f"Bearer {tok}"},
-        json={"delta": -1.0, "reason": "test"},
+        json={"delta_units": -1000, "reason": "test"},
     )
     assert r2.status_code == 409
     err = r2.json()
