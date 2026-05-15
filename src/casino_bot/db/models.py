@@ -148,6 +148,7 @@ class TokenAccount(Base):
         Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     balance = Column(Float, nullable=False, default=0)
+    balance_units = Column(BigInteger, nullable=False, default=0)
 
     user = relationship("User", back_populates="token_account")
 
@@ -160,6 +161,7 @@ class LedgerEntry(Base):
         Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     delta = Column(Float, nullable=False)
+    delta_units = Column(BigInteger, nullable=False, default=0)
     reason = Column(String(255), nullable=False)
 
 
@@ -182,6 +184,8 @@ class GameRound(Base):
     idempotency_key = Column(String(128), nullable=False)
     bet_amount = Column(Float, nullable=False)
     payout_delta = Column(Float, nullable=False)
+    bet_units = Column(BigInteger, nullable=False, default=0)
+    payout_units = Column(BigInteger, nullable=False, default=0)
     status = Column(String(16), nullable=False, index=True)  # committed|rejected|failed
     details_json = Column(JSON, nullable=True)
     created_at = Column(

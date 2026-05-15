@@ -89,14 +89,14 @@ async def deliver_wheel_committed_command(
     *,
     stake_tokens: int,
     outcome: str,
-    payout_delta: float,
+    net_change_tokens: str,
     balance_line: str,
     idempotent_replay: bool,
 ) -> None:
     pres = build_wheel_presentation(
         stake_tokens=stake_tokens,
         outcome=outcome,
-        payout_delta=payout_delta,
+        net_change_tokens=net_change_tokens,
         balance_line=balance_line,
         idempotent_replay=idempotent_replay,
     )
@@ -121,14 +121,14 @@ async def deliver_wheel_committed_callback(
     *,
     stake_tokens: int,
     outcome: str,
-    payout_delta: float,
+    net_change_tokens: str,
     balance_line: str,
     idempotent_replay: bool,
 ) -> None:
     pres = build_wheel_presentation(
         stake_tokens=stake_tokens,
         outcome=outcome,
-        payout_delta=payout_delta,
+        net_change_tokens=net_change_tokens,
         balance_line=balance_line,
         idempotent_replay=idempotent_replay,
     )

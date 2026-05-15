@@ -30,7 +30,7 @@ def build_wheel_presentation(
     *,
     stake_tokens: int,
     outcome: str,
-    payout_delta: float,
+    net_change_tokens: str,
     balance_line: str,
     idempotent_replay: bool,
 ) -> GamePresentation:
@@ -38,7 +38,7 @@ def build_wheel_presentation(
     result_body = game_texts.wheel_result_compact(
         stake_tokens=stake_tokens,
         outcome=outcome,
-        payout_delta=payout_delta,
+        net_change_tokens=net_change_tokens,
         balance_line=balance_line,
         idempotent_replay=idempotent_replay,
     )

@@ -64,8 +64,8 @@ def record_game_round_completion(
     game_id: str,
     status: str,
     details: dict | None,
-    bet_amount: float,
-    payout_delta: float,
+    bet_tokens: int,
+    payout_volume_tokens: float,
     idempotent_replay: bool,
     duration_seconds: float,
 ) -> None:
@@ -76,9 +76,9 @@ def record_game_round_completion(
     if status == "committed":
         oc = _committed_outcome_label(details)
         game_rounds_total.labels(game_id, "committed", oc).inc()
-        game_token_volume_total.labels(game_id, "stake").inc(float(bet_amount))
-        if payout_delta > 0:
-            game_token_volume_total.labels(game_id, "payout").inc(float(payout_delta))
+        game_token_volume_total.labels(game_id, "stake").inc(float(bet_tokens))
+        if payout_volume_tokens > 0:
+            game_token_volume_total.labels(game_id, "payout").inc(payout_volume_tokens)
     elif status == "rejected":
         game_rounds_total.labels(game_id, "rejected", "unknown").inc()
     elif status == "failed":

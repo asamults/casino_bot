@@ -11,6 +11,7 @@ from casino_bot.games.service import GameEngineRejected, run_game
 from casino_bot.settings import Settings
 from casino_bot.telegram_bot.user_ops import ensure_telegram_user
 from casino_bot.services.economy_service import adjust_user_tokens
+from casino_bot.services.token_amounts import tokens_whole_to_units
 
 
 def _labeled_counter_value(metric_base: str, labels: dict[str, str]) -> float:
@@ -30,11 +31,15 @@ def _labeled_counter_value(metric_base: str, labels: dict[str, str]) -> float:
     return 0.0
 
 
-def _fund(db, *, user_id: int, amount: float) -> None:
+def _fund(db, *, user_id: int, whole_tokens: int) -> None:
+    from casino_bot.settings import settings as app_settings
+
     adjust_user_tokens(
         db,
         user_id=user_id,
-        delta=amount,
+        delta_units=tokens_whole_to_units(
+            whole_tokens, scale=app_settings.TOKEN_UNIT_SCALE
+        ),
         reason="test:fund",
         actor="tests",
     )
@@ -73,7 +78,7 @@ def test_metrics_increment_on_winning_round(
     )
 
     user = ensure_telegram_user(sqlite_session, telegram_user_id=93001)
-    _fund(sqlite_session, user_id=user.id, amount=100.0)
+    _fund(sqlite_session, user_id=user.id, whole_tokens=100)
     sqlite_session.commit()
 
     run_game(
@@ -116,7 +121,7 @@ def test_metrics_idempotent_replay_does_not_double_count(
     monkeypatch.setattr("casino_bot.settings.settings", cfg)
 
     user = ensure_telegram_user(sqlite_session, telegram_user_id=93002)
-    _fund(sqlite_session, user_id=user.id, amount=100.0)
+    _fund(sqlite_session, user_id=user.id, whole_tokens=100)
     sqlite_session.commit()
 
     key = "idem-1"
@@ -166,7 +171,7 @@ def test_metrics_engine_rejection_increments_rejected_total(
     monkeypatch.setattr("casino_bot.settings.settings", cfg)
 
     user = ensure_telegram_user(sqlite_session, telegram_user_id=93003)
-    _fund(sqlite_session, user_id=user.id, amount=1.0)
+    _fund(sqlite_session, user_id=user.id, whole_tokens=1)
     sqlite_session.commit()
 
     before = _labeled_counter_value(
@@ -205,7 +210,7 @@ def test_metrics_bonus_wheel_committed_bust_outcome(
         },
     )
     user = ensure_telegram_user(sqlite_session, telegram_user_id=93004)
-    _fund(sqlite_session, user_id=user.id, amount=50.0)
+    _fund(sqlite_session, user_id=user.id, whole_tokens=50)
     sqlite_session.commit()
     run_game(
         sqlite_session,
@@ -237,7 +242,7 @@ def test_metrics_access_tokens_required_uses_rejection_counter(
     )
     monkeypatch.setattr("casino_bot.settings.settings", cfg)
     user = ensure_telegram_user(sqlite_session, telegram_user_id=93005)
-    _fund(sqlite_session, user_id=user.id, amount=10.0)
+    _fund(sqlite_session, user_id=user.id, whole_tokens=10)
     sqlite_session.commit()
 
     before = _labeled_counter_value(

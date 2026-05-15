@@ -22,7 +22,8 @@ from casino_bot.admin.api_v1.schemas import (
 from casino_bot.admin.deps import admin_guard, superadmin_guard
 from casino_bot.core.database import get_db
 from casino_bot.db.models import User
-from casino_bot.services import economy_service
+from casino_bot.services import economy_service, token_amounts
+from casino_bot.settings import settings
 from casino_bot.services.subscription_admin_service import (
     activate_internal_test_plan,
     deactivate_internal_test_plan,
@@ -76,6 +77,16 @@ def api_get_user(
         SubscriptionSummaryOut.model_validate(s) for s in (user.subscriptions or [])
     ]
     ta = user.token_account
+    ta_out: TokenAccountOut | None = None
+    if ta is not None:
+        u = int(ta.balance_units)
+        ta_out = TokenAccountOut(
+            balance_units=u,
+            balance_tokens=token_amounts.format_signed_token_amount(
+                u, scale=settings.TOKEN_UNIT_SCALE
+            ).lstrip("+"),
+            balance=float(ta.balance),
+        )
     detail = UserDetailOut(
         id=user.id,
         created_at=user.created_at,
@@ -84,7 +95,7 @@ def api_get_user(
         telegram_user_id=user.telegram_user_id,
         whatsapp_phone_e164=user.whatsapp_phone_e164,
         billing_customer_id=user.billing_customer_id,
-        token_account=TokenAccountOut.model_validate(ta) if ta is not None else None,
+        token_account=ta_out,
         subscriptions=subs,
     )
     return detail
@@ -131,7 +142,7 @@ def api_adjust_tokens(
         account = economy_service.adjust_user_tokens(
             db,
             user_id=user_id,
-            delta=payload.delta,
+            delta_units=payload.delta_units,
             reason=payload.reason,
             actor=actor,
         )
@@ -139,7 +150,15 @@ def api_adjust_tokens(
     except ValueError as exc:
         db.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return {"user_id": user_id, "balance": account.balance}
+    u = int(account.balance_units)
+    return {
+        "user_id": user_id,
+        "balance_units": u,
+        "balance_tokens": token_amounts.format_signed_token_amount(
+            u, scale=settings.TOKEN_UNIT_SCALE
+        ).lstrip("+"),
+        "balance": float(account.balance),
+    }
 
 
 @router.get("/{user_id}/subscription", response_model=SubscriptionListResponse)

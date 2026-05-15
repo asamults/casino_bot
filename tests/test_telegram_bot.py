@@ -302,7 +302,7 @@ def test_wheel_reply_bust_committed() -> None:
     snap = _FlipSnapshot(
         game_id="bonus_wheel",
         status="committed",
-        details={"outcome": "bust", "payout_delta": -10.0},
+        details={"outcome": "bust", "payout_delta_units": -10_000},
         balance_line="Token balance: 40",
         user_id=1,
         bet_amount=10,

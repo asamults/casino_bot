@@ -220,7 +220,7 @@ def test_entitlement_enforcement_on_business_operation(billing_client):
     blocked = client.post(
         f"/api/v1/admin/users/{user_id}/tokens/adjust",
         headers={"Authorization": f"Bearer {token}"},
-        json={"delta": 1.0, "reason": "test"},
+        json={"delta_units": 1000, "reason": "test"},
     )
     assert blocked.status_code == 402
 
@@ -238,6 +238,6 @@ def test_entitlement_enforcement_on_business_operation(billing_client):
     allowed = client.post(
         f"/api/v1/admin/users/{user_id}/tokens/adjust",
         headers={"Authorization": f"Bearer {token}"},
-        json={"delta": 1.0, "reason": "test"},
+        json={"delta_units": 1000, "reason": "test"},
     )
     assert allowed.status_code == 200

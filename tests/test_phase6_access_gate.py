@@ -8,16 +8,21 @@ from casino_bot.db.models import GameRound, TokenAccount
 from casino_bot.games.presentation import build_wheel_presentation
 from casino_bot.games.service import GameEngineRejected, run_game
 from casino_bot.services.economy_service import adjust_user_tokens
+from casino_bot.services.token_amounts import tokens_whole_to_units
 from casino_bot.settings import Settings
 from casino_bot.telegram_bot import game_texts
 from casino_bot.telegram_bot.user_ops import ensure_telegram_user
 
 
-def _fund(db, *, user_id: int, amount: float) -> None:
+def _fund(db, *, user_id: int, whole_tokens: int) -> None:
+    from casino_bot.settings import settings as app_settings
+
     adjust_user_tokens(
         db,
         user_id=user_id,
-        delta=amount,
+        delta_units=tokens_whole_to_units(
+            whole_tokens, scale=app_settings.TOKEN_UNIT_SCALE
+        ),
         reason="test:fund",
         actor="tests",
     )
@@ -33,13 +38,13 @@ def test_access_gate_blocks_below_threshold_no_round_no_balance_change(
     )
     monkeypatch.setattr("casino_bot.settings.settings", cfg)
     user = ensure_telegram_user(sqlite_session, telegram_user_id=96001)
-    _fund(sqlite_session, user_id=user.id, amount=5.0)
+    _fund(sqlite_session, user_id=user.id, whole_tokens=5)
     sqlite_session.commit()
     bal_before = (
         sqlite_session.query(TokenAccount)
         .filter(TokenAccount.user_id == user.id)
         .one()
-        .balance
+        .balance_units
     )
     with pytest.raises(GameEngineRejected) as ei:
         run_game(
@@ -57,7 +62,7 @@ def test_access_gate_blocks_below_threshold_no_round_no_balance_change(
         sqlite_session.query(TokenAccount)
         .filter(TokenAccount.user_id == user.id)
         .one()
-        .balance
+        .balance_units
     )
     assert bal_after == bal_before
 
@@ -79,7 +84,7 @@ def test_wheel_presentation_has_three_steps() -> None:
     pres = build_wheel_presentation(
         stake_tokens=2,
         outcome="silver",
-        payout_delta=2.0,
+        net_change_tokens="2",
         balance_line="Token balance: 9",
         idempotent_replay=False,
     )

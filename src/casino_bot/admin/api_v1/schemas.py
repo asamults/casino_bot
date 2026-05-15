@@ -8,7 +8,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class TokenAccountOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    """Token wallet; ``balance`` mirrors deprecated float storage."""
+
+    balance_units: int
+    balance_tokens: str
     balance: float
 
 
@@ -63,7 +66,7 @@ class UserCreateBody(BaseModel):
 
 
 class TokenAdjustBody(BaseModel):
-    delta: float
+    delta_units: int
     reason: str = Field(..., min_length=1, max_length=255)
 
 

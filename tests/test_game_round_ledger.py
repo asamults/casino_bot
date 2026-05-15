@@ -10,14 +10,18 @@ from casino_bot.db.base import Base
 from casino_bot.db.models import LedgerEntry, TokenAccount
 from casino_bot.services.economy_service import adjust_user_tokens
 from casino_bot.services.game_round_service import execute_game_round
+from casino_bot.services.token_amounts import tokens_whole_to_units
+from casino_bot.settings import settings
 from casino_bot.telegram_bot.user_ops import ensure_telegram_user
 
 
-def _fund(db, *, user_id: int, amount: float) -> None:
+def _fund(db, *, user_id: int, whole_tokens: int) -> None:
     adjust_user_tokens(
         db,
         user_id=user_id,
-        delta=amount,
+        delta_units=tokens_whole_to_units(
+            whole_tokens, scale=settings.TOKEN_UNIT_SCALE
+        ),
         reason="test:fund",
         actor="tests",
     )
@@ -25,7 +29,7 @@ def _fund(db, *, user_id: int, amount: float) -> None:
 
 def test_round_idempotency_same_key_no_double_spend(sqlite_session) -> None:
     user = ensure_telegram_user(sqlite_session, telegram_user_id=91001)
-    _fund(sqlite_session, user_id=user.id, amount=10.0)
+    _fund(sqlite_session, user_id=user.id, whole_tokens=10)
     sqlite_session.commit()
 
     gr1 = execute_game_round(
@@ -33,7 +37,7 @@ def test_round_idempotency_same_key_no_double_spend(sqlite_session) -> None:
         user_id=user.id,
         game_id="phase1:test",
         idempotency_key="k-1",
-        bet_amount=3.0,
+        bet_amount=3,
         actor="tests",
         details={"test": True},
     )
@@ -43,7 +47,7 @@ def test_round_idempotency_same_key_no_double_spend(sqlite_session) -> None:
         sqlite_session.query(TokenAccount)
         .filter(TokenAccount.user_id == user.id)
         .one()
-        .balance
+        .balance_units
     )
 
     gr2 = execute_game_round(
@@ -51,7 +55,7 @@ def test_round_idempotency_same_key_no_double_spend(sqlite_session) -> None:
         user_id=user.id,
         game_id="phase1:test",
         idempotency_key="k-1",
-        bet_amount=3.0,
+        bet_amount=3,
         actor="tests",
         details={"test": True},
     )
@@ -61,19 +65,19 @@ def test_round_idempotency_same_key_no_double_spend(sqlite_session) -> None:
         sqlite_session.query(TokenAccount)
         .filter(TokenAccount.user_id == user.id)
         .one()
-        .balance
+        .balance_units
     )
 
     assert gr1.id == gr2.id
     assert gr1.round_id == gr2.round_id
     assert gr1.status == "committed"
-    assert bal_after_1 == 7.0
-    assert bal_after_2 == 7.0
+    assert bal_after_1 == 7_000
+    assert bal_after_2 == 7_000
 
 
 def test_round_insufficient_funds_rejected_no_balance_change(sqlite_session) -> None:
     user = ensure_telegram_user(sqlite_session, telegram_user_id=91002)
-    _fund(sqlite_session, user_id=user.id, amount=1.0)
+    _fund(sqlite_session, user_id=user.id, whole_tokens=1)
     sqlite_session.commit()
 
     ledger_before = (
@@ -85,7 +89,7 @@ def test_round_insufficient_funds_rejected_no_balance_change(sqlite_session) -> 
         user_id=user.id,
         game_id="phase1:test",
         idempotency_key="k-insufficient",
-        bet_amount=5.0,
+        bet_amount=5,
         actor="tests",
         details={"case": "insufficient"},
     )
@@ -95,7 +99,7 @@ def test_round_insufficient_funds_rejected_no_balance_change(sqlite_session) -> 
         sqlite_session.query(TokenAccount)
         .filter(TokenAccount.user_id == user.id)
         .one()
-        .balance
+        .balance_units
     )
     ledger_after = (
         sqlite_session.query(LedgerEntry).filter(LedgerEntry.user_id == user.id).count()
@@ -103,7 +107,7 @@ def test_round_insufficient_funds_rejected_no_balance_change(sqlite_session) -> 
 
     assert gr.status == "rejected"
     assert gr.payout_delta == 0.0
-    assert bal == 1.0
+    assert bal == 1_000
     assert ledger_after == ledger_before
 
 
@@ -121,7 +125,7 @@ def test_round_concurrent_same_key_single_commit(tmp_path: Path) -> None:
     s0 = Session()
     user = ensure_telegram_user(s0, telegram_user_id=91003)
     user_id = user.id
-    _fund(s0, user_id=user.id, amount=10.0)
+    _fund(s0, user_id=user.id, whole_tokens=10)
     s0.commit()
     s0.close()
 
@@ -138,7 +142,7 @@ def test_round_concurrent_same_key_single_commit(tmp_path: Path) -> None:
                 user_id=user_id,
                 game_id="phase1:test",
                 idempotency_key="k-concurrent",
-                bet_amount=4.0,
+                bet_amount=4,
                 actor="tests",
             )
             s.commit()
@@ -167,7 +171,7 @@ def test_round_concurrent_same_key_single_commit(tmp_path: Path) -> None:
         s_check.query(TokenAccount)
         .filter(TokenAccount.user_id == user_id)
         .one()
-        .balance
+        .balance_units
     )
     s_check.close()
-    assert bal == 6.0
+    assert bal == 6_000

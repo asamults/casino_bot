@@ -5,8 +5,9 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from casino_bot.db.models import TokenAccount, User
-from casino_bot.services import economy_service
-from casino_bot.telegram_bot.texts import BALANCE_UNAVAILABLE, format_balance_message
+from casino_bot.services import economy_service, token_amounts
+from casino_bot.settings import settings
+from casino_bot.telegram_bot.texts import BALANCE_UNAVAILABLE
 
 _TELEGRAM_ACTOR = "telegram_bot"
 
@@ -32,4 +33,6 @@ def resolve_balance_reply(db: Session, *, user_id: int) -> str:
     acc = db.query(TokenAccount).filter(TokenAccount.user_id == user_id).first()
     if acc is None:
         return BALANCE_UNAVAILABLE
-    return format_balance_message(acc.balance)
+    return token_amounts.format_balance_message_units(
+        int(acc.balance_units), scale=settings.TOKEN_UNIT_SCALE
+    )
