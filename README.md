@@ -38,8 +38,10 @@ All **repository artifacts** stay in **English**: README, inline comments, `Make
 
 ## Domain, compliance, and subscriptions
 
-- **`users`**: core identity with optional `telegram_user_id` (unique), `whatsapp_phone_e164` (unique E.164 including `+`), optional `billing_customer_id` (indexed, for a future billing provider), `internal_note`, and `is_active`. Token balances live in `token_accounts` with a foreign key to `users.id`.
-- **`subscriptions`**: placeholder for paid plans (`provider`, `plan_code`, `status`, `external_subscription_id`, `current_period_end`). No Stripe/Paddle SDK in this repo; webhook handlers would update rows later. Use `services.entitlement.user_has_active_subscription` for simple gating (`status == active` and period end if set).
+- **`users`**: core identity with optional `telegram_user_id` (unique), `whatsapp_phone_e164` (unique E.164 including `+`), optional `billing_customer_id` (indexed, for a future billing provider), `internal_note`, and `is_active`. Token balances use **`token_accounts.balance_units`** (integer); legacy float fields are not source of truth after Phase 7.
+- **Game access (canonical):** play is allowed when **`balance_units >= GAME_ACCESS_MIN_TOKENS * TOKEN_UNIT_SCALE`** (default scale **1000** → 1 visible token = 1000 units). Reject code **`access_tokens_required`**. This is **not** gated by subscription rows. Full contract: `docs/roadmap/phase7.5-product-runtime-contract.md`.
+- **`subscriptions`**: billing relationship rows (`provider`, `plan_code`, `status`, etc.). **`user_has_active_subscription`** is for admin/billing features — **not** for blocking `/flip` or `/wheel`. Token package checkout (Phase 8) credits **fixed `token_units`** via `economy_service` only; design: `docs/roadmap/phase8-token-package-checkout.md`.
+- **Program status / next steps:** `docs/roadmap/current-program-status.md`.
 - **Compliance**: pure rules in `casino_bot.compliance` (`Operation` + `validate_operation` registry). Token adjustments go through `economy_service` so checks run before commit; violations map to HTTP **409** on admin APIs.
 - **Audit**: `audit_service.audit_log` records admin login outcomes (no passwords) and token balance changes with structured `details` JSON on `audit_logs`.
 - **Telegram/WhatsApp**: only nullable columns and uniqueness; no bot clients or webhooks in this layer.
