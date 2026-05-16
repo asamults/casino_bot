@@ -1,8 +1,11 @@
 # Phase 7 — Integer `token_units` accounting
 
-Status: **spec** (not implemented). **Do not** implement checkout or new games in this phase.
+Status: **closed** (merged PR #24, tag `phase7-token-units-accounting-green-2026-05-15`, example HEAD `8ee9503`).
+**Next:** operational and product steps in `current-program-status.md` (VPS 6D rehearsal → Phase 7.5 → Phase 8 design/implementation).
 
-## Repository baseline (when starting)
+Historical spec below (for implementers auditing the change). **Do not** reintroduce float as source of truth.
+
+## Repository baseline (when starting — historical)
 
 - `main` includes Phase 6D (production Telegram polling docs/unit/smoke), merged (e.g. PR #23, commit `bee669b` or later).
 - Phase 6 balance gate: `GAME_ACCESS_MIN_TOKENS`, reject `access_tokens_required`.
@@ -62,19 +65,19 @@ Reject code remains **`access_tokens_required`**.
 
 ## Migration strategy (safe order)
 
-**Step 1 — Add columns**  
+**Step 1 — Add columns**
 Add `balance_units` on wallet table and `amount_units` on ledger (names illustrative). **Keep** existing float columns temporarily.
 
-**Step 2 — Backfill**  
+**Step 2 — Backfill**
 Convert with an **explicit** policy: e.g. half-up to integer units, reject NaN/Inf, reject precision beyond supported scale. For pilot/dev with little data, `round(old * TOKEN_UNIT_SCALE)` may be acceptable if documented and verified by tests.
 
-**Step 3 — Switch application code**  
+**Step 3 — Switch application code**
 All writes/reads for economy use `*_units`. Float columns become read-only or unused for one release.
 
-**Step 4 — Tests**  
+**Step 4 — Tests**
 See “Required tests” below.
 
-**Step 5 — Drop float columns**  
+**Step 5 — Drop float columns**
 Separate commit **only** after green CI and data verification.
 
 ## Allowed to change
@@ -188,7 +191,7 @@ You are working in the `casino_bot` repository.
 
 ## Handoff checklist
 
-- [ ] Migrations listed in PR description  
-- [ ] Display formatting documented (visible vs units)  
-- [ ] No secrets committed  
-- [ ] `docs/roadmap/monthly-post-phase6d-2026-05.md` still accurate after merge  
+- [ ] Migrations listed in PR description
+- [ ] Display formatting documented (visible vs units)
+- [ ] No secrets committed
+- [ ] `docs/roadmap/current-program-status.md` reflects deployment on each environment

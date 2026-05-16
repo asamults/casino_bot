@@ -1,6 +1,7 @@
 # Game Phase 6 — Universal delivery, token access, audio cues
 
-Status: **implemented** in repo (Phase 6). Builds on Phases 1–5 and observability Phase 4B.
+Status: **closed** (balance gate shipped). Builds on Phases 1–5 and observability Phase 4B.
+**Follow-on:** Phase 7 (`token_units`), Phase 7.5 contract, Phase 8 checkout — see `current-program-status.md`.
 
 ## Product model (canonical)
 
